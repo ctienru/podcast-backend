@@ -1,4 +1,4 @@
-package com.example.podcast_backend;
+package com.example.podcastbackend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

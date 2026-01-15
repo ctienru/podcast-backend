@@ -1,4 +1,4 @@
-package com.example.podcast_backend;
+package com.example.podcastbackend;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
