@@ -1,0 +1,4 @@
+search:
+  show:
+    template:
+      path: podcast-spec/es/search_shows/query.template.mustache
