@@ -1,27 +1,37 @@
 package com.example.podcastbackend.service;
 
+import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
+import com.example.podcastbackend.response.EpisodeSearchResponse;
 import com.example.podcastbackend.response.ShowSearchResponse;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
+import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
+import com.example.podcastbackend.search.query.EpisodeSearchQueryBuilder;
 import com.example.podcastbackend.search.query.ShowSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SearchService {
 
-    private final ShowSearchQueryBuilder queryBuilder;
+    private final ShowSearchQueryBuilder showQueryBuilder;
+    private final EpisodeSearchQueryBuilder episodeQueryBuilder;
     private final ElasticsearchSearchClient esClient;
-    private final ShowSearchMapper mapper;
+    private final ShowSearchMapper showMapper;
+    private final EpisodeSearchMapper episodeMapper;
 
     public SearchService(
-            ShowSearchQueryBuilder queryBuilder,
+            ShowSearchQueryBuilder showQueryBuilder,
+            EpisodeSearchQueryBuilder episodeQueryBuilder,
             ElasticsearchSearchClient esClient,
-            ShowSearchMapper mapper
+            ShowSearchMapper showMapper,
+            EpisodeSearchMapper episodeMapper
     ) {
-        this.queryBuilder = queryBuilder;
+        this.showQueryBuilder = showQueryBuilder;
+        this.episodeQueryBuilder = episodeQueryBuilder;
         this.esClient = esClient;
-        this.mapper = mapper;
+        this.showMapper = showMapper;
+        this.episodeMapper = episodeMapper;
     }
 
     public ShowSearchResponse searchShows(ShowSearchRequest request) {
@@ -33,13 +43,17 @@ public class SearchService {
             );
         }
 
-        String queryJson = queryBuilder.build(request);
-
-        System.out.println("=== ES QUERY ===");
-        System.out.println(queryJson);
-
+        String queryJson = showQueryBuilder.build(request);
         var esResult = esClient.search("shows", queryJson);
 
-        return mapper.toResponse(esResult, request);
+        return showMapper.toResponse(esResult, request);
+    }
+
+    public EpisodeSearchResponse searchEpisodes(EpisodeSearchRequest request) {
+
+        String queryJson = episodeQueryBuilder.build(request);
+        var esResult = esClient.search("episodes", queryJson);
+
+        return episodeMapper.toResponse(esResult, request);
     }
 }
