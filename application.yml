@@ -1,7 +1,0 @@
-search:
-  show:
-    template:
-      path: podcast-spec/es/search_shows/query.template.mustache
-  episode:
-    template:
-      path: podcast-spec/es/search_episodes/query.template.mustache

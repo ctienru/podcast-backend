@@ -26,3 +26,8 @@ replay_pid*
 .idea/
 .DS_Store
 
+# Maven
+target/
+
+# Spec files (from podcast-spec repo)
+src/main/resources/podcast-spec/
