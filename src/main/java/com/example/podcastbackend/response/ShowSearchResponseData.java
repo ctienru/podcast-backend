@@ -6,5 +6,5 @@ public record ShowSearchResponseData(
         int page,
         int size,
         int total,
-        List<?> items
+        List<ShowSearchItem> items
 ) {}

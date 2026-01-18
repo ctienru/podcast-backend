@@ -9,51 +9,63 @@ import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
 import com.example.podcastbackend.search.query.EpisodeSearchQueryBuilder;
 import com.example.podcastbackend.search.query.ShowSearchQueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SearchService {
+
+    private static final Logger log = LoggerFactory.getLogger(SearchService.class);
 
     private final ShowSearchQueryBuilder showQueryBuilder;
     private final EpisodeSearchQueryBuilder episodeQueryBuilder;
     private final ElasticsearchSearchClient esClient;
     private final ShowSearchMapper showMapper;
     private final EpisodeSearchMapper episodeMapper;
+    private final String showsIndex;
+    private final String episodesIndex;
 
     public SearchService(
             ShowSearchQueryBuilder showQueryBuilder,
             EpisodeSearchQueryBuilder episodeQueryBuilder,
             ElasticsearchSearchClient esClient,
             ShowSearchMapper showMapper,
-            EpisodeSearchMapper episodeMapper
+            EpisodeSearchMapper episodeMapper,
+            @Value("${elasticsearch.indices.shows:shows}") String showsIndex,
+            @Value("${elasticsearch.indices.episodes:episodes}") String episodesIndex
     ) {
         this.showQueryBuilder = showQueryBuilder;
         this.episodeQueryBuilder = episodeQueryBuilder;
         this.esClient = esClient;
         this.showMapper = showMapper;
         this.episodeMapper = episodeMapper;
+        this.showsIndex = showsIndex;
+        this.episodesIndex = episodesIndex;
     }
 
     public ShowSearchResponse searchShows(ShowSearchRequest request) {
-
-        if (request.getPage() != null && request.getPage() > 1) {
-            return ShowSearchResponse.error(
-                    "BAD_REQUEST",
-                    "Only page=1 is supported currently"
-            );
-        }
+        log.info("Searching shows with query: '{}', page: {}, size: {}",
+                request.getQ(), request.getPage(), request.getSize());
 
         String queryJson = showQueryBuilder.build(request);
-        var esResult = esClient.search("shows", queryJson);
+        var esResult = esClient.search(showsIndex, queryJson);
+        var response = showMapper.toResponse(esResult, request);
 
-        return showMapper.toResponse(esResult, request);
+        log.debug("Show search completed, found {} results", esResult.hits().total().value());
+        return response;
     }
 
     public EpisodeSearchResponse searchEpisodes(EpisodeSearchRequest request) {
+        log.info("Searching episodes with query: '{}', page: {}, size: {}, sort: {}",
+                request.getQ(), request.getPage(), request.getSize(), request.getSort());
 
         String queryJson = episodeQueryBuilder.build(request);
-        var esResult = esClient.search("episodes", queryJson);
+        var esResult = esClient.search(episodesIndex, queryJson);
+        var response = episodeMapper.toResponse(esResult, request);
 
-        return episodeMapper.toResponse(esResult, request);
+        log.debug("Episode search completed, found {} results", esResult.hits().total().value());
+        return response;
     }
 }

@@ -2,6 +2,7 @@ package com.example.podcastbackend.search.client;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.example.podcastbackend.exception.SearchServiceException;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +25,7 @@ public class ElasticsearchSearchClient {
                     JsonNode.class
             );
         } catch (Exception e) {
-            throw new RuntimeException("Elasticsearch search failed", e);
+            throw new SearchServiceException("Elasticsearch search failed", e);
         }
     }
 }

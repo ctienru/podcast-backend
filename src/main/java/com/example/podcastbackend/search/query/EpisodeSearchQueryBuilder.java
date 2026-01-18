@@ -7,10 +7,8 @@ import com.github.mustachejava.Mustache;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.StringWriter;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,7 +23,11 @@ public class EpisodeSearchQueryBuilder {
     ) throws Exception {
 
         var mf = new DefaultMustacheFactory();
-        var reader = Files.newBufferedReader(Path.of(templatePath), StandardCharsets.UTF_8);
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(templatePath);
+        if (inputStream == null) {
+            throw new IOException("Template not found in classpath: " + templatePath);
+        }
+        var reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
         this.mustache = mf.compile(reader, "search_episodes");
     }
 
