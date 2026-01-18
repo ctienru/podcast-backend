@@ -11,13 +11,26 @@ public record EpisodeSearchItem(
         String publishedAt,
         Integer durationSec,
         String imageUrl,
-        PodcastInfo podcast
+        String language,
+        Audio audio,
+        ShowInfo podcast
 ) {
 
-    public record PodcastInfo(
-            String podcastId,
+    public record Audio(
+            String url,
+            String type,
+            Long lengthBytes
+    ) {}
+
+    public record ShowInfo(
+            String showId,
             String title,
             String publisher,
-            String imageUrl
+            String imageUrl,
+            ExternalUrl externalUrl
+    ) {}
+
+    public record ExternalUrl(
+            String applePodcastUrl
     ) {}
 }
