@@ -1,0 +1,59 @@
+search:
+  show:
+    template:
+      path: podcast-spec/es/search_shows/query.template.mustache
+  episode:
+    template:
+      path: podcast-spec/es/search_episodes/query.template.mustache
+
+# Elasticsearch configuration
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:localhost}
+  port: ${ELASTICSEARCH_PORT:9200}
+  scheme: ${ELASTICSEARCH_SCHEME:http}
+  connect-timeout: ${ELASTICSEARCH_CONNECT_TIMEOUT:5000}
+  socket-timeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
+  indices:
+    shows: ${ELASTICSEARCH_INDEX_SHOWS:shows}
+    episodes: ${ELASTICSEARCH_INDEX_EPISODES:episodes}
+
+# Rankings cache configuration
+rankings:
+  cache:
+    ttl-seconds: ${RANKINGS_CACHE_TTL:3600}
+
+# CORS configuration
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+# Actuator configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# Resilience4j Rate Limiter configuration
+resilience4j:
+  ratelimiter:
+    instances:
+      searchApi:
+        limit-for-period: ${RATE_LIMIT_SEARCH:50}
+        limit-refresh-period: 1s
+        timeout-duration: 0s
+      rankingsApi:
+        limit-for-period: ${RATE_LIMIT_RANKINGS:30}
+        limit-refresh-period: 1s
+        timeout-duration: 0s
+  circuitbreaker:
+    instances:
+      appleApi:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 5s
