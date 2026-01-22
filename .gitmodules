@@ -1,0 +1,4 @@
+[submodule "src/main/resources/podcast-spec"]
+	path = src/main/resources/podcast-spec
+	url = git@github.com:ctienru/podcast-spec.git
+	branch = main

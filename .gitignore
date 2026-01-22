@@ -28,6 +28,3 @@ replay_pid*
 
 # Maven
 target/
-
-# Spec files (from podcast-spec repo)
-src/main/resources/podcast-spec/
