@@ -13,8 +13,9 @@ jobs:
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+    with:
+      submodules: recursive
+      token: ${{ secrets.SPEC_REPO_TOKEN }}
 
       - name: Verify podcast-spec is pinned to tag
         run: |
