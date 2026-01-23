@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify podcast-spec is pinned to tag
+        run: |
+          cd src/main/resources/podcast-spec
+          if TAG=$(git describe --tags --exact-match 2>/dev/null); then
+            echo "✅ podcast-spec version: $TAG"
+          else
+            echo "❌ Error: podcast-spec must be pinned to a tagged version"
+            echo ""
+            echo "Current commit: $(git rev-parse --short HEAD)"
+            echo ""
+            echo "To fix this:"
+            echo "  1. Go to podcast-spec repo and create a tag:"
+            echo "     git tag -a vX.X.X -m 'description'"
+            echo "     git push origin vX.X.X"
+            echo ""
+            echo "  2. Update submodule in this repo:"
+            echo "     cd src/main/resources/podcast-spec"
+            echo "     git checkout vX.X.X"
+            echo "     cd -"
+            echo "     git add src/main/resources/podcast-spec"
+            echo "     git commit -m 'chore: update podcast-spec to vX.X.X'"
+            exit 1
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and test
+        run: ./mvnw clean verify
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/surefire-reports/
+          retention-days: 7
