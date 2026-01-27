@@ -217,7 +217,7 @@ This starts Elasticsearch, Kibana, Backend, and Frontend together.
 ## Related Projects
 
 - **podcast-frontend**: Search UI (Next.js)
-- **podcast-search**: Elasticsearch indexing service (Python)
-- **podcast-crawler**: Data crawling service
+- **podcast-search**: RSS parsing, data cleaning, ES indexing (Python)
+- **podcast-crawler**: RSS fetching, show metadata extraction (Python)
 - **podcast-spec**: OpenAPI specification (Git submodule)
 - **podcast-infra**: Infrastructure and deployment
