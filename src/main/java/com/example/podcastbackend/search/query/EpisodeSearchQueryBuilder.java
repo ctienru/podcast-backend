@@ -50,8 +50,11 @@ public class EpisodeSearchQueryBuilder {
         ctx.put("size", request.getSize());
 
         if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            ctx.put("languages", request.getLanguage());
-            ctx.put("toJson", new ToJsonLambda(objectMapper));
+            try {
+                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize languages", e);
+            }
         }
 
         StringWriter writer = new StringWriter();
@@ -89,8 +92,11 @@ public class EpisodeSearchQueryBuilder {
         ctx.put("size", windowSize);
 
         if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            ctx.put("languages", request.getLanguage());
-            ctx.put("toJson", new ToJsonLambda(objectMapper));
+            try {
+                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize languages", e);
+            }
         }
 
         StringWriter writer = new StringWriter();
