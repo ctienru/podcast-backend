@@ -74,6 +74,14 @@ public class EpisodeSearchMapper {
         return EpisodeSearchResponse.ok(data);
     }
 
+    /**
+     * Convert a single ES hit to an EpisodeSearchItem.
+     * Used by Hybrid search to convert fused results.
+     */
+    public EpisodeSearchItem hitToItem(Hit<JsonNode> hit) {
+        return toItemSafe(hit);
+    }
+
     private EpisodeSearchItem toItemSafe(Hit<JsonNode> hit) {
         try {
             return toItem(hit);

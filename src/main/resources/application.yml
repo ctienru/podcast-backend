@@ -6,6 +6,13 @@ search:
     template:
       path: podcast-spec/es/search_episodes/query.template.mustache
 
+# Embedding service configuration
+embedding:
+  service:
+    type: ${EMBEDDING_SERVICE_TYPE:remote}  # remote | stub
+    url: ${EMBEDDING_SERVICE_URL:http://localhost:8081}
+    timeout: ${EMBEDDING_SERVICE_TIMEOUT:5000}
+
 # Elasticsearch configuration
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
