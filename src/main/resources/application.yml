@@ -18,6 +18,12 @@ elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
   port: ${ELASTICSEARCH_PORT:9200}
   scheme: ${ELASTICSEARCH_SCHEME:http}
+  # Auth Method 1: API Key (priority)
+  api-key-id: ${ELASTICSEARCH_API_KEY_ID:}
+  api-key-secret: ${ELASTICSEARCH_API_KEY_SECRET:}
+  # Auth Method 2: Basic Auth
+  username: ${ELASTICSEARCH_USERNAME:}
+  password: ${ELASTICSEARCH_PASSWORD:}
   connect-timeout: ${ELASTICSEARCH_CONNECT_TIMEOUT:5000}
   socket-timeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   indices:
