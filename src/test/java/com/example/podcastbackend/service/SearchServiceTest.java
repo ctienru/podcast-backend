@@ -10,8 +10,10 @@ import com.example.podcastbackend.response.*;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
+import com.example.podcastbackend.search.mapper.SuggestMapper;
 import com.example.podcastbackend.search.query.EpisodeSearchQueryBuilder;
 import com.example.podcastbackend.search.query.ShowSearchQueryBuilder;
+import com.example.podcastbackend.search.query.SuggestQueryBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,9 @@ class SearchServiceTest {
     private EpisodeSearchQueryBuilder episodeQueryBuilder;
 
     @Mock
+    private SuggestQueryBuilder suggestQueryBuilder;
+
+    @Mock
     private ElasticsearchSearchClient esClient;
 
     @Mock
@@ -43,6 +48,9 @@ class SearchServiceTest {
 
     @Mock
     private EpisodeSearchMapper episodeMapper;
+
+    @Mock
+    private SuggestMapper suggestMapper;
 
     @Mock
     private EmbeddingService embeddingService;
@@ -54,9 +62,11 @@ class SearchServiceTest {
         searchService = new SearchService(
                 showQueryBuilder,
                 episodeQueryBuilder,
+                suggestQueryBuilder,
                 esClient,
                 showMapper,
                 episodeMapper,
+                suggestMapper,
                 embeddingService,
                 "shows",
                 "episodes"
@@ -68,14 +78,15 @@ class SearchServiceTest {
     // =====================
 
     @Test
-    void searchShows_delegatesToQueryBuilderAndClient() {
+    void searchShows_bm25Mode_executesBm25Query() {
         ShowSearchRequest request = mock(ShowSearchRequest.class);
         when(request.getQ()).thenReturn("technology");
         when(request.getPage()).thenReturn(1);
         when(request.getSize()).thenReturn(10);
+        when(request.getSearchMode()).thenReturn(ShowSearchRequest.SearchMode.BM25);
 
         String expectedQuery = "{\"query\":{\"match\":{\"title\":\"technology\"}}}";
-        when(showQueryBuilder.build(request)).thenReturn(expectedQuery);
+        when(showQueryBuilder.buildBm25Query(request)).thenReturn(expectedQuery);
 
         @SuppressWarnings("unchecked")
         SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
@@ -98,7 +109,7 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         assertNotNull(response.data());
         assertEquals(5, response.data().total());
-        verify(showQueryBuilder).build(request);
+        verify(showQueryBuilder).buildBm25Query(request);
         verify(esClient).search("shows", expectedQuery);
         verify(showMapper).toResponse(mockEsResponse, request);
     }
