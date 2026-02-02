@@ -10,10 +10,8 @@ import com.example.podcastbackend.response.*;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
-import com.example.podcastbackend.search.mapper.SuggestMapper;
 import com.example.podcastbackend.search.query.EpisodeSearchQueryBuilder;
 import com.example.podcastbackend.search.query.ShowSearchQueryBuilder;
-import com.example.podcastbackend.search.query.SuggestQueryBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,9 +36,6 @@ class SearchServiceTest {
     private EpisodeSearchQueryBuilder episodeQueryBuilder;
 
     @Mock
-    private SuggestQueryBuilder suggestQueryBuilder;
-
-    @Mock
     private ElasticsearchSearchClient esClient;
 
     @Mock
@@ -48,9 +43,6 @@ class SearchServiceTest {
 
     @Mock
     private EpisodeSearchMapper episodeMapper;
-
-    @Mock
-    private SuggestMapper suggestMapper;
 
     @Mock
     private EmbeddingService embeddingService;
@@ -62,11 +54,9 @@ class SearchServiceTest {
         searchService = new SearchService(
                 showQueryBuilder,
                 episodeQueryBuilder,
-                suggestQueryBuilder,
                 esClient,
                 showMapper,
                 episodeMapper,
-                suggestMapper,
                 embeddingService,
                 "shows",
                 "episodes"

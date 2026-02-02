@@ -4,12 +4,7 @@ import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.EpisodeSearchResponse;
 import com.example.podcastbackend.response.ShowSearchResponse;
-import com.example.podcastbackend.response.SuggestResponse;
 import com.example.podcastbackend.service.SearchService;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -55,21 +50,5 @@ public class SearchController {
             @Valid @RequestBody EpisodeSearchRequest request
     ) {
         return searchService.searchEpisodes(request);
-    }
-
-    @GetMapping("/suggest")
-    @RateLimiter(name = "searchApi")
-    @Operation(summary = "Autocomplete suggestions", description = "Get title suggestions for shows and episodes based on query prefix")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Suggestions retrieved successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request parameters"),
-            @ApiResponse(responseCode = "429", description = "Rate limit exceeded")
-    })
-    public SuggestResponse suggest(
-            @RequestParam @NotBlank @Size(min = 2, max = 100) String q,
-            @RequestParam(defaultValue = "5") @Min(1) @Max(20) Integer showLimit,
-            @RequestParam(defaultValue = "5") @Min(1) @Max(20) Integer episodeLimit
-    ) {
-        return searchService.suggest(q, showLimit, episodeLimit);
     }
 }

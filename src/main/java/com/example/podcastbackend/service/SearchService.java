@@ -6,21 +6,15 @@ import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.EpisodeSearchItem;
 import com.example.podcastbackend.response.EpisodeSearchResponse;
 import com.example.podcastbackend.response.EpisodeSearchResponseData;
-import com.example.podcastbackend.response.EpisodeSuggestItem;
 import com.example.podcastbackend.response.ShowSearchItem;
 import com.example.podcastbackend.response.ShowSearchResponse;
 import com.example.podcastbackend.response.ShowSearchResponseData;
-import com.example.podcastbackend.response.ShowSuggestItem;
-import com.example.podcastbackend.response.SuggestResponse;
-import com.example.podcastbackend.response.SuggestResponseData;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.fusion.RrfFusion;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
-import com.example.podcastbackend.search.mapper.SuggestMapper;
 import com.example.podcastbackend.search.query.EpisodeSearchQueryBuilder;
 import com.example.podcastbackend.search.query.ShowSearchQueryBuilder;
-import com.example.podcastbackend.search.query.SuggestQueryBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,11 +34,9 @@ public class SearchService {
 
     private final ShowSearchQueryBuilder showQueryBuilder;
     private final EpisodeSearchQueryBuilder episodeQueryBuilder;
-    private final SuggestQueryBuilder suggestQueryBuilder;
     private final ElasticsearchSearchClient esClient;
     private final ShowSearchMapper showMapper;
     private final EpisodeSearchMapper episodeMapper;
-    private final SuggestMapper suggestMapper;
     private final EmbeddingService embeddingService;
     private final RrfFusion rrfFusion;
     private final String showsIndex;
@@ -53,22 +45,18 @@ public class SearchService {
     public SearchService(
             ShowSearchQueryBuilder showQueryBuilder,
             EpisodeSearchQueryBuilder episodeQueryBuilder,
-            SuggestQueryBuilder suggestQueryBuilder,
             ElasticsearchSearchClient esClient,
             ShowSearchMapper showMapper,
             EpisodeSearchMapper episodeMapper,
-            SuggestMapper suggestMapper,
             EmbeddingService embeddingService,
             @Value("${elasticsearch.indices.shows:shows}") String showsIndex,
             @Value("${elasticsearch.indices.episodes:episodes}") String episodesIndex
     ) {
         this.showQueryBuilder = showQueryBuilder;
         this.episodeQueryBuilder = episodeQueryBuilder;
-        this.suggestQueryBuilder = suggestQueryBuilder;
         this.esClient = esClient;
         this.showMapper = showMapper;
         this.episodeMapper = episodeMapper;
-        this.suggestMapper = suggestMapper;
         this.embeddingService = embeddingService;
         this.rrfFusion = new RrfFusion(RRF_RANK_CONSTANT);
         this.showsIndex = showsIndex;
@@ -251,29 +239,5 @@ public class SearchService {
 
         log.debug("Exact search completed, found {} results", esResult.hits().total().value());
         return response;
-    }
-
-    public SuggestResponse suggest(String query, int showLimit, int episodeLimit) {
-        log.info("Getting suggestions for query: '{}', showLimit: {}, episodeLimit: {}",
-                query, showLimit, episodeLimit);
-
-        try {
-            // Execute show suggestions
-            String showQueryJson = suggestQueryBuilder.buildShowSuggestQuery(query, showLimit);
-            var showResult = esClient.search(showsIndex, showQueryJson);
-            List<ShowSuggestItem> shows = suggestMapper.toShowSuggestions(showResult);
-
-            // Execute episode suggestions
-            String episodeQueryJson = suggestQueryBuilder.buildEpisodeSuggestQuery(query, episodeLimit);
-            var episodeResult = esClient.search(episodesIndex, episodeQueryJson);
-            List<EpisodeSuggestItem> episodes = suggestMapper.toEpisodeSuggestions(episodeResult);
-
-            log.debug("Suggestions completed: {} shows, {} episodes", shows.size(), episodes.size());
-
-            return SuggestResponse.ok(new SuggestResponseData(shows, episodes));
-        } catch (Exception e) {
-            log.error("Suggest failed: {}", e.getMessage(), e);
-            return SuggestResponse.error("SUGGEST_ERROR", "Failed to get suggestions");
-        }
     }
 }
