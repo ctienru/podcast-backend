@@ -68,14 +68,15 @@ class SearchServiceTest {
     // =====================
 
     @Test
-    void searchShows_delegatesToQueryBuilderAndClient() {
+    void searchShows_bm25Mode_executesBm25Query() {
         ShowSearchRequest request = mock(ShowSearchRequest.class);
         when(request.getQ()).thenReturn("technology");
         when(request.getPage()).thenReturn(1);
         when(request.getSize()).thenReturn(10);
+        when(request.getSearchMode()).thenReturn(ShowSearchRequest.SearchMode.BM25);
 
         String expectedQuery = "{\"query\":{\"match\":{\"title\":\"technology\"}}}";
-        when(showQueryBuilder.build(request)).thenReturn(expectedQuery);
+        when(showQueryBuilder.buildBm25Query(request)).thenReturn(expectedQuery);
 
         @SuppressWarnings("unchecked")
         SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
@@ -98,7 +99,7 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         assertNotNull(response.data());
         assertEquals(5, response.data().total());
-        verify(showQueryBuilder).build(request);
+        verify(showQueryBuilder).buildBm25Query(request);
         verify(esClient).search("shows", expectedQuery);
         verify(showMapper).toResponse(mockEsResponse, request);
     }

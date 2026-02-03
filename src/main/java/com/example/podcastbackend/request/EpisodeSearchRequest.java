@@ -22,28 +22,68 @@ public class EpisodeSearchRequest {
     private List<String> language;
     private String mode; // "bm25" | "knn" | "hybrid" (default: "bm25" for backward compatibility)
 
-    public String getQ() { return q; }
-    public Integer getPage() { return page; }
-    public Integer getSize() { return size; }
-    public String getSort() { return sort; }
-    public List<String> getLanguage() { return language; }
-    public String getMode() { return mode; }
+    // Time decay parameters (recency boosting)
+    private Boolean timeDecay = true; // Enable/disable time decay (default: true)
+    private String timeDecayScale = "90d"; // Decay scale (default: 30 days)
+    private Double timeDecayRate = 0.5; // Decay rate at scale distance (default: 0.5)
+
+    public String getQ() {
+        return q;
+    }
+
+    public Integer getPage() {
+        return page;
+    }
+
+    public Integer getSize() {
+        return size;
+    }
+
+    public String getSort() {
+        return sort;
+    }
+
+    public List<String> getLanguage() {
+        return language;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public Boolean getTimeDecay() {
+        return timeDecay;
+    }
+
+    public String getTimeDecayScale() {
+        return timeDecayScale;
+    }
+
+    public Double getTimeDecayRate() {
+        return timeDecayRate;
+    }
+
+    public boolean isTimeDecayEnabled() {
+        return timeDecay == null || timeDecay; // Default to true if not specified
+    }
 
     public boolean sortByDate() {
         return "date".equalsIgnoreCase(sort);
     }
 
     public SearchMode getSearchMode() {
-        if (mode == null) return SearchMode.BM25; // Default to BM25 for backward compatibility
+        if (mode == null)
+            return SearchMode.BM25; // Default to BM25 for backward compatibility
         return switch (mode.toLowerCase()) {
             case "knn" -> SearchMode.KNN;
             case "hybrid" -> SearchMode.HYBRID;
+            case "exact" -> SearchMode.EXACT;
             default -> SearchMode.BM25;
         };
     }
 
     public enum SearchMode {
-        BM25, KNN, HYBRID
+        BM25, KNN, HYBRID, EXACT
     }
 
     public int from() {

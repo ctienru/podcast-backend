@@ -1,6 +1,6 @@
 # podcast-backend
 
-Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providing full-text search for 150K+ podcast episodes with rate limiting and circuit breaker patterns.
+Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providing **Hybrid Search** (BM25 + kNN + RRF) for 175K+ podcast episodes with rate limiting and circuit breaker patterns.
 
 ## Architecture Overview
 
@@ -21,7 +21,11 @@ Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providi
 
 ## Features
 
-- **Full-Text Search**: Search podcasts and episodes with multi-language support (Chinese/English)
+- **Hybrid Search**: BM25 + kNN + RRF (Reciprocal Rank Fusion) for best-of-both-worlds search
+- **Multiple Search Modes**: `bm25`, `knn`, `hybrid`, `exact` (match_phrase)
+- **Time Decay**: Boost recent content with configurable decay parameters
+- **Autocomplete**: Real-time search suggestions for shows and episodes
+- **Multi-Language Support**: Chinese (IK Analyzer) and English with cross-language search
 - **Mustache Query Templates**: Flexible Elasticsearch query generation with templating
 - **Apple Charts Rankings**: Cached podcast rankings by country (Taiwan, US)
 - **Rate Limiting**: Configurable request limits per endpoint (Resilience4j)
@@ -130,18 +134,38 @@ curl -X POST http://localhost:8080/api/search/episodes \
 
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
-| POST | `/api/search/shows` | Search podcasts | 50/sec |
-| POST | `/api/search/episodes` | Search episodes | 50/sec |
+| GET | `/api/search/shows` | Search podcasts | 50/sec |
+| GET | `/api/search/episodes` | Search episodes | 50/sec |
+| GET | `/api/search/suggest` | Autocomplete suggestions | 100/sec |
 
-**Request Body:**
-```json
-{
-  "q": "search query",
-  "page": 1,
-  "size": 10,
-  "language": ["en", "zh"],
-  "sort": "relevance"
-}
+**Episode Search Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | required | Search query |
+| `page` | int | 1 | Page number |
+| `size` | int | 10 | Results per page |
+| `mode` | string | `bm25` | Search mode: `bm25`, `knn`, `hybrid`, `exact` |
+| `timeDecay` | boolean | true | Enable time decay for recent content |
+| `timeDecayScale` | string | `90d` | Decay scale (e.g., `30d`, `60d`) |
+| `timeDecayRate` | double | 0.5 | Decay rate (0-1) |
+
+**Search Modes:**
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `bm25` | Text matching (TF-IDF) | Keyword search |
+| `knn` | Semantic search (embedding) | Concept search |
+| `hybrid` | BM25 + kNN + RRF fusion | **Recommended** |
+| `exact` | Exact phrase match | Precise search |
+
+**Example:**
+```bash
+# Hybrid search with time decay
+GET /api/search/episodes?q=AI&mode=hybrid&timeDecay=true
+
+# Exact phrase match
+GET /api/search/episodes?q=machine+learning&mode=exact
 ```
 
 ### Rankings

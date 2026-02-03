@@ -6,7 +6,9 @@ import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.EpisodeSearchItem;
 import com.example.podcastbackend.response.EpisodeSearchResponse;
 import com.example.podcastbackend.response.EpisodeSearchResponseData;
+import com.example.podcastbackend.response.ShowSearchItem;
 import com.example.podcastbackend.response.ShowSearchResponse;
+import com.example.podcastbackend.response.ShowSearchResponseData;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.fusion.RrfFusion;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
@@ -62,15 +64,87 @@ public class SearchService {
     }
 
     public ShowSearchResponse searchShows(ShowSearchRequest request) {
-        log.info("Searching shows with query: '{}', page: {}, size: {}",
-                request.getQ(), request.getPage(), request.getSize());
+        var mode = request.getSearchMode();
 
-        String queryJson = showQueryBuilder.build(request);
+        log.info("Searching shows with query: '{}', mode: {}, page: {}, size: {}",
+                request.getQ(), mode, request.getPage(), request.getSize());
+
+        return switch (mode) {
+            case BM25 -> searchShowsBm25(request);
+            case KNN -> searchShowsKnn(request);
+            case HYBRID -> searchShowsHybrid(request);
+        };
+    }
+
+    private ShowSearchResponse searchShowsBm25(ShowSearchRequest request) {
+        String queryJson = showQueryBuilder.buildBm25Query(request);
         var esResult = esClient.search(showsIndex, queryJson);
         var response = showMapper.toResponse(esResult, request);
 
-        log.debug("Show search completed, found {} results", esResult.hits().total().value());
+        log.debug("BM25 show search completed, found {} results", esResult.hits().total().value());
         return response;
+    }
+
+    private ShowSearchResponse searchShowsKnn(ShowSearchRequest request) {
+        if (!embeddingService.isAvailable()) {
+            log.warn("Embedding service not available, falling back to BM25");
+            return searchShowsBm25(request);
+        }
+
+        float[] queryVector = embeddingService.encode(request.getQ());
+        String queryJson = showQueryBuilder.buildKnnQuery(request, queryVector);
+        var esResult = esClient.search(showsIndex, queryJson);
+        var response = showMapper.toResponse(esResult, request);
+
+        log.debug("kNN show search completed, found {} results", esResult.hits().total().value());
+        return response;
+    }
+
+    private ShowSearchResponse searchShowsHybrid(ShowSearchRequest request) {
+        if (!embeddingService.isAvailable()) {
+            log.warn("Embedding service not available, falling back to BM25");
+            return searchShowsBm25(request);
+        }
+
+        // 1. Execute BM25 query
+        String bm25QueryJson = showQueryBuilder.buildBm25QueryForHybrid(request, RRF_WINDOW_SIZE);
+        SearchResponse<JsonNode> bm25Result = esClient.search(showsIndex, bm25QueryJson);
+
+        // 2. Execute kNN query
+        float[] queryVector = embeddingService.encode(request.getQ());
+        String knnQueryJson = showQueryBuilder.buildKnnQueryForHybrid(queryVector, RRF_WINDOW_SIZE);
+        SearchResponse<JsonNode> knnResult = esClient.search(showsIndex, knnQueryJson);
+
+        // 3. Apply RRF fusion
+        List<RrfFusion.FusedResult> fusedResults = rrfFusion.fuse(
+                bm25Result,
+                knnResult,
+                request.getSize()
+        );
+
+        // 4. Convert to response
+        List<ShowSearchItem> items = fusedResults.stream()
+                .map(r -> showMapper.hitToItem(r.hit()))
+                .toList();
+
+        int total = Math.min(
+                (int) bm25Result.hits().total().value() + (int) knnResult.hits().total().value(),
+                RRF_WINDOW_SIZE * 2
+        );
+
+        var data = new ShowSearchResponseData(
+                request.getPage(),
+                request.getSize(),
+                total,
+                items
+        );
+
+        log.info("Hybrid show search completed: bm25={}, knn={}, fused={}",
+                bm25Result.hits().hits().size(),
+                knnResult.hits().hits().size(),
+                fusedResults.size());
+
+        return ShowSearchResponse.ok(data);
     }
 
     public EpisodeSearchResponse searchEpisodes(EpisodeSearchRequest request) {
@@ -83,6 +157,7 @@ public class SearchService {
             case BM25 -> searchEpisodesBm25(request);
             case KNN -> searchEpisodesKnn(request);
             case HYBRID -> searchEpisodesHybrid(request);
+            case EXACT -> searchEpisodesExact(request);
         };
     }
 
@@ -155,5 +230,14 @@ public class SearchService {
                 fusedResults.size());
 
         return EpisodeSearchResponse.ok(data);
+    }
+
+    private EpisodeSearchResponse searchEpisodesExact(EpisodeSearchRequest request) {
+        String queryJson = episodeQueryBuilder.buildExactQuery(request);
+        var esResult = esClient.search(episodesIndex, queryJson);
+        var response = episodeMapper.toResponse(esResult, request);
+
+        log.debug("Exact search completed, found {} results", esResult.hits().total().value());
+        return response;
     }
 }

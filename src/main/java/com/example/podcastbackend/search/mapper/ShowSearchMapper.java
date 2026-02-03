@@ -38,6 +38,14 @@ public class ShowSearchMapper {
         return ShowSearchResponse.ok(data);
     }
 
+    /**
+     * Convert a single ES hit to a ShowSearchItem.
+     * Used by Hybrid search to convert fused results.
+     */
+    public ShowSearchItem hitToItem(Hit<JsonNode> hit) {
+        return toItem(hit);
+    }
+
     private ShowSearchItem toItem(Hit<JsonNode> hit) {
         JsonNode src = hit.source();
         Map<String, List<String>> highlights =

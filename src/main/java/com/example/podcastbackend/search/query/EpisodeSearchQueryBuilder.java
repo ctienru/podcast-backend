@@ -17,16 +17,23 @@ public class EpisodeSearchQueryBuilder {
 
     private final Mustache bm25Template;
     private final Mustache knnTemplate;
+    private final Mustache exactTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int KNN_NUM_CANDIDATES = 100;
 
+    // Default time decay parameters (can be overridden via request)
+    private static final String DEFAULT_TIME_DECAY_SCALE = "90d";
+    private static final double DEFAULT_TIME_DECAY_RATE = 0.5;
+
     public EpisodeSearchQueryBuilder(
             @Value("${search.episode.template.bm25.path:podcast-spec/es/search_episodes/bm25.query.template.mustache}") String bm25Path,
-            @Value("${search.episode.template.knn.path:podcast-spec/es/search_episodes/knn.query.template.mustache}") String knnPath
-    ) throws Exception {
+            @Value("${search.episode.template.knn.path:podcast-spec/es/search_episodes/knn.query.template.mustache}") String knnPath,
+            @Value("${search.episode.template.exact.path:podcast-spec/es/search_episodes/exact.query.template.mustache}") String exactPath)
+            throws Exception {
         this.bm25Template = loadTemplate(bm25Path, "bm25");
         this.knnTemplate = loadTemplate(knnPath, "knn");
+        this.exactTemplate = loadTemplate(exactPath, "exact");
     }
 
     private Mustache loadTemplate(String path, String name) throws IOException {
@@ -49,6 +56,17 @@ public class EpisodeSearchQueryBuilder {
         ctx.put("from", request.from());
         ctx.put("size", request.getSize());
 
+        // Time decay parameters (configurable via request)
+        if (request.isTimeDecayEnabled()) {
+            ctx.put("time_decay_enabled", true);
+            ctx.put("time_decay_scale", request.getTimeDecayScale() != null
+                    ? request.getTimeDecayScale()
+                    : DEFAULT_TIME_DECAY_SCALE);
+            ctx.put("time_decay_rate", request.getTimeDecayRate() != null
+                    ? request.getTimeDecayRate()
+                    : DEFAULT_TIME_DECAY_RATE);
+        }
+
         if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
             try {
                 ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
@@ -65,7 +83,7 @@ public class EpisodeSearchQueryBuilder {
     /**
      * Build kNN query for semantic search.
      *
-     * @param request The search request
+     * @param request     The search request
      * @param queryVector The embedding vector for the query (768 dimensions)
      */
     public String buildKnnQuery(EpisodeSearchRequest request, float[] queryVector) {
@@ -90,6 +108,17 @@ public class EpisodeSearchQueryBuilder {
         ctx.put("query", request.getQ());
         ctx.put("from", 0);
         ctx.put("size", windowSize);
+
+        // Time decay parameters (configurable via request)
+        if (request.isTimeDecayEnabled()) {
+            ctx.put("time_decay_enabled", true);
+            ctx.put("time_decay_scale", request.getTimeDecayScale() != null
+                    ? request.getTimeDecayScale()
+                    : DEFAULT_TIME_DECAY_SCALE);
+            ctx.put("time_decay_rate", request.getTimeDecayRate() != null
+                    ? request.getTimeDecayRate()
+                    : DEFAULT_TIME_DECAY_RATE);
+        }
 
         if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
             try {
@@ -117,6 +146,31 @@ public class EpisodeSearchQueryBuilder {
 
         StringWriter writer = new StringWriter();
         knnTemplate.execute(writer, ctx);
+        return writer.toString();
+    }
+
+    /**
+     * Build exact match query using match_phrase for precise phrase matching.
+     * No time decay - users searching for exact phrases typically want specific
+     * content.
+     */
+    public String buildExactQuery(EpisodeSearchRequest request) {
+        Map<String, Object> ctx = new HashMap<>();
+
+        ctx.put("query", request.getQ());
+        ctx.put("from", request.from());
+        ctx.put("size", request.getSize());
+
+        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
+            try {
+                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize languages", e);
+            }
+        }
+
+        StringWriter writer = new StringWriter();
+        exactTemplate.execute(writer, ctx);
         return writer.toString();
     }
 
