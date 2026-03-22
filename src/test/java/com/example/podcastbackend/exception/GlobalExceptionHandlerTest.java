@@ -91,6 +91,43 @@ class GlobalExceptionHandlerTest {
         assertEquals("Too many requests. Please try again later.", error.get("message"));
     }
 
+    // --- v2 exceptions ---
+
+    @Test
+    void handleCrossIndexPageLimit_returnsNewFlatFormat() {
+        CrossIndexPageLimitException exception =
+                new CrossIndexPageLimitException("zh-both search only supports up to 5 pages");
+
+        Map<String, Object> response = handler.handleCrossIndexPageLimit(exception);
+
+        assertEquals("CROSS_INDEX_PAGE_LIMIT", response.get("errorCode"));
+        assertEquals("zh-both search only supports up to 5 pages", response.get("message"));
+        assertFalse(response.containsKey("status"));
+    }
+
+    @Test
+    void handleInvalidLangParam_returnsNewFlatFormat() {
+        InvalidLangParamException exception =
+                new InvalidLangParamException("Invalid lang parameter: foo. Allowed: zh-tw, zh-cn, en, zh-both");
+
+        Map<String, Object> response = handler.handleInvalidLangParam(exception);
+
+        assertEquals("INVALID_LANG_PARAM", response.get("errorCode"));
+        assertEquals("Invalid lang parameter: foo. Allowed: zh-tw, zh-cn, en, zh-both", response.get("message"));
+        assertFalse(response.containsKey("status"));
+    }
+
+    @Test
+    void handleInvalidSearchParam_returnsNewFlatFormat() {
+        InvalidSearchParamException exception = new InvalidSearchParamException("page must be <= 100");
+
+        Map<String, Object> response = handler.handleInvalidSearchParam(exception);
+
+        assertEquals("INVALID_SEARCH_PARAM", response.get("errorCode"));
+        assertEquals("page must be <= 100", response.get("message"));
+        assertFalse(response.containsKey("status"));
+    }
+
     @Test
     void handleCircuitBreakerException_returnsCorrectErrorFormat() {
         CircuitBreaker circuitBreaker = CircuitBreaker.ofDefaults("test");

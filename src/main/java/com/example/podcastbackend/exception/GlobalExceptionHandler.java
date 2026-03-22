@@ -80,6 +80,26 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // --- v2 exceptions (new flat format: {"errorCode": "...", "message": "..."}) ---
+
+    @ExceptionHandler(CrossIndexPageLimitException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, Object> handleCrossIndexPageLimit(CrossIndexPageLimitException e) {
+        return Map.of("errorCode", "CROSS_INDEX_PAGE_LIMIT", "message", e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidLangParamException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, Object> handleInvalidLangParam(InvalidLangParamException e) {
+        return Map.of("errorCode", "INVALID_LANG_PARAM", "message", e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidSearchParamException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, Object> handleInvalidSearchParam(InvalidSearchParamException e) {
+        return Map.of("errorCode", "INVALID_SEARCH_PARAM", "message", e.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleIllegalArgumentException(IllegalArgumentException e) {

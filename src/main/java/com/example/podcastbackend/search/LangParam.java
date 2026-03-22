@@ -1,5 +1,7 @@
 package com.example.podcastbackend.search;
 
+import com.example.podcastbackend.exception.InvalidLangParamException;
+
 public enum LangParam {
     ZH_TW("zh-tw"),
     ZH_CN("zh-cn"),
@@ -19,8 +21,7 @@ public enum LangParam {
     /**
      * Converts a string to LangParam.
      * Returns null for null input.
-     * Throws IllegalArgumentException for unrecognised values
-     * (will be replaced with InvalidLangParamException in Batch 3).
+     * Throws InvalidLangParamException for unrecognised values.
      */
     public static LangParam fromString(String value) {
         if (value == null) return null;
@@ -29,7 +30,7 @@ public enum LangParam {
                 return param;
             }
         }
-        throw new IllegalArgumentException(
+        throw new InvalidLangParamException(
             "Invalid lang parameter: " + value + ". Allowed: zh-tw, zh-cn, en, zh-both"
         );
     }

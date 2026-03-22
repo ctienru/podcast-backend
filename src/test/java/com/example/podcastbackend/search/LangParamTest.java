@@ -1,5 +1,6 @@
 package com.example.podcastbackend.search;
 
+import com.example.podcastbackend.exception.InvalidLangParamException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,8 +33,8 @@ class LangParamTest {
     }
 
     @Test
-    void fromString_invalid_throwsException() {
-        assertThrows(IllegalArgumentException.class, () -> LangParam.fromString("fr"));
+    void fromString_invalid_throwsInvalidLangParamException() {
+        assertThrows(InvalidLangParamException.class, () -> LangParam.fromString("fr"));
     }
 
     @Test
