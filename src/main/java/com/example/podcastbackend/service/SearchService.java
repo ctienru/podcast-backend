@@ -3,6 +3,8 @@ package com.example.podcastbackend.service;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.example.podcastbackend.exception.CrossIndexPageLimitException;
 import com.example.podcastbackend.exception.InvalidSearchParamException;
+import com.example.podcastbackend.log.QueryLogEntry;
+import com.example.podcastbackend.log.QueryLogService;
 import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.EpisodeSearchItem;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,6 +49,7 @@ public class SearchService {
     private final EmbeddingService embeddingService;
     private final RrfFusion rrfFusion;
     private final IndexRouter indexRouter;
+    private final QueryLogService queryLogService;
     private final boolean languageSplitEnabled;
     private final String showsIndex;
     private final String episodesIndex;
@@ -58,6 +62,7 @@ public class SearchService {
             EpisodeSearchMapper episodeMapper,
             EmbeddingService embeddingService,
             IndexRouter indexRouter,
+            QueryLogService queryLogService,
             @Value("${features.language-split:false}") boolean languageSplitEnabled,
             @Value("${elasticsearch.indices.shows:shows}") String showsIndex,
             @Value("${elasticsearch.indices.episodes:episodes}") String episodesIndex
@@ -70,6 +75,7 @@ public class SearchService {
         this.embeddingService = embeddingService;
         this.rrfFusion = new RrfFusion(RRF_RANK_CONSTANT);
         this.indexRouter = indexRouter;
+        this.queryLogService = queryLogService;
         this.languageSplitEnabled = languageSplitEnabled;
         this.showsIndex = showsIndex;
         this.episodesIndex = episodesIndex;
@@ -188,8 +194,11 @@ public class SearchService {
             throw new InvalidSearchParamException("size must be <= 50");
         }
 
+        // Cache cross-index flag to avoid redundant calls
+        boolean isCrossLang = indexRouter.isCrossIndex(request.getLang());
+
         // zh-both cross-index page limit
-        if (indexRouter.isCrossIndex(request.getLang()) && request.getPage() > 5) {
+        if (isCrossLang && request.getPage() > 5) {
             throw new CrossIndexPageLimitException("zh-both search only supports up to 5 pages");
         }
 
@@ -197,14 +206,19 @@ public class SearchService {
 
         log.info("search_episodes_routed",
                 kv("lang", request.getLang()),
-                kv("cross_index", indexRouter.isCrossIndex(request.getLang())),
+                kv("cross_index", isCrossLang),
                 kv("request_id", requestId));
 
+        long startTime = System.currentTimeMillis();
+        String targetIndex;
         EpisodeSearchResponse response;
-        if (indexRouter.isCrossIndex(request.getLang())) {
+
+        if (isCrossLang) {
+            List<String> indices = indexRouter.resolveIndices(request.getLang());
+            targetIndex = String.join(",", indices);
             response = searchEpisodesCrossLang(request);
         } else {
-            String targetIndex = indexRouter.resolveIndex(request.getLang());
+            targetIndex = indexRouter.resolveIndex(request.getLang());
             response = switch (mode) {
                 case BM25 -> searchEpisodesBm25(request, targetIndex);
                 case KNN -> searchEpisodesKnn(request, targetIndex);
@@ -213,7 +227,32 @@ public class SearchService {
             };
         }
 
-        // Attach the requestId to the response (used by Batch 7 query-log + click-log)
+        long latencyMs = System.currentTimeMillis() - startTime;
+
+        // Async query log (Batch 7) — silent drop on failure, never blocks the response
+        EpisodeSearchResponseData responseData = response.data();
+        List<EpisodeSearchItem> items;
+        if (responseData != null && responseData.items() != null) {
+            items = responseData.items();
+        } else {
+            items = List.of();
+        }
+        queryLogService.logQuery(new QueryLogEntry(
+                requestId,
+                Instant.now().toString(),
+                request.getQ(),
+                request.getLang(),
+                request.getLang(),
+                mode.name().toLowerCase(),
+                targetIndex,
+                isCrossLang,
+                items.size(),
+                items.stream().map(EpisodeSearchItem::episodeId).toList(),
+                items.stream().map(e -> e.language() != null ? e.language() : "unknown").toList(),
+                request.getPage(),
+                latencyMs
+        ));
+
         return new EpisodeSearchResponse(
                 response.status(), response.data(), response.warning(), response.error(), requestId);
     }

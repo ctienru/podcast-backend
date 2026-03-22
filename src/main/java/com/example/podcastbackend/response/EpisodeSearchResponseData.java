@@ -6,5 +6,5 @@ public record EpisodeSearchResponseData(
         int page,
         int size,
         int total,
-        List<?> items
+        List<EpisodeSearchItem> items
 ) {}

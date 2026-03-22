@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.example.podcastbackend.exception.CrossIndexPageLimitException;
 import com.example.podcastbackend.exception.InvalidSearchParamException;
+import com.example.podcastbackend.log.QueryLogService;
 import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.*;
@@ -55,6 +56,9 @@ class SearchServiceTest {
     @Mock
     private IndexRouter indexRouter;
 
+    @Mock
+    private QueryLogService queryLogService;
+
     // Service with feature flag OFF (v1 legacy behaviour)
     private SearchService searchService;
 
@@ -71,6 +75,7 @@ class SearchServiceTest {
                 episodeMapper,
                 embeddingService,
                 indexRouter,
+                queryLogService,
                 false,       // languageSplitEnabled = OFF
                 "shows",
                 "episodes"
@@ -84,6 +89,7 @@ class SearchServiceTest {
                 episodeMapper,
                 embeddingService,
                 indexRouter,
+                queryLogService,
                 true,        // languageSplitEnabled = ON
                 "shows",
                 "episodes"
