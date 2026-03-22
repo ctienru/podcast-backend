@@ -4,9 +4,12 @@ import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import co.elastic.clients.elasticsearch.core.search.TotalHitsRelation;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import com.example.podcastbackend.exception.CrossIndexPageLimitException;
+import com.example.podcastbackend.exception.InvalidSearchParamException;
 import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.*;
+import com.example.podcastbackend.search.IndexRouter;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
@@ -14,6 +17,8 @@ import com.example.podcastbackend.search.query.EpisodeSearchQueryBuilder;
 import com.example.podcastbackend.search.query.ShowSearchQueryBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,7 +52,14 @@ class SearchServiceTest {
     @Mock
     private EmbeddingService embeddingService;
 
+    @Mock
+    private IndexRouter indexRouter;
+
+    // Service with feature flag OFF (v1 legacy behaviour)
     private SearchService searchService;
+
+    // Service with feature flag ON (v2 lang-split path)
+    private SearchService searchServiceWithFlag;
 
     @BeforeEach
     void setUp() {
@@ -58,6 +70,21 @@ class SearchServiceTest {
                 showMapper,
                 episodeMapper,
                 embeddingService,
+                indexRouter,
+                false,       // languageSplitEnabled = OFF
+                "shows",
+                "episodes"
+        );
+
+        searchServiceWithFlag = new SearchService(
+                showQueryBuilder,
+                episodeQueryBuilder,
+                esClient,
+                showMapper,
+                episodeMapper,
+                embeddingService,
+                indexRouter,
+                true,        // languageSplitEnabled = ON
                 "shows",
                 "episodes"
         );
@@ -105,7 +132,7 @@ class SearchServiceTest {
     }
 
     // =====================
-    // Episode BM25 Search Tests
+    // Episode BM25 Search Tests (feature flag OFF — legacy path)
     // =====================
 
     @Test
@@ -136,10 +163,12 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         verify(episodeQueryBuilder).buildBm25Query(request);
         verify(esClient).search("episodes", expectedQuery);
+        // IndexRouter must NOT be called when feature flag is off
+        verifyNoInteractions(indexRouter);
     }
 
     // =====================
-    // Episode kNN Search Tests
+    // Episode kNN Search Tests (feature flag OFF)
     // =====================
 
     @Test
@@ -212,7 +241,7 @@ class SearchServiceTest {
     }
 
     // =====================
-    // Episode Hybrid Search Tests
+    // Episode Hybrid Search Tests (feature flag OFF)
     // =====================
 
     @Test
@@ -292,5 +321,152 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         verify(embeddingService).isAvailable();
         verify(embeddingService, never()).encode(anyString());
+    }
+
+    // =====================
+    // Feature Flag Tests (v2 lang-split path)
+    // =====================
+
+    @Nested
+    @DisplayName("Feature flag ON — language-split path")
+    class LanguageSplitTests {
+
+        @Test
+        @DisplayName("flag on: page > 100 throws InvalidSearchParamException")
+        void searchEpisodes_flagOn_pageExceedsLimit_throws() {
+            EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+            when(request.getQ()).thenReturn("podcast");
+            when(request.getPage()).thenReturn(101);
+            when(request.getSize()).thenReturn(10);
+            when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+            // isCrossIndex is never reached — page check throws first
+
+            assertThrows(InvalidSearchParamException.class,
+                    () -> searchServiceWithFlag.searchEpisodes(request));
+        }
+
+        @Test
+        @DisplayName("flag on: size > 50 throws InvalidSearchParamException")
+        void searchEpisodes_flagOn_sizeExceedsLimit_throws() {
+            EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+            when(request.getQ()).thenReturn("podcast");
+            when(request.getPage()).thenReturn(1);
+            when(request.getSize()).thenReturn(51);
+            when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+            // isCrossIndex is never reached — size check throws first
+
+            assertThrows(InvalidSearchParamException.class,
+                    () -> searchServiceWithFlag.searchEpisodes(request));
+        }
+
+        @Test
+        @DisplayName("flag on: zh-both + page > 5 throws CrossIndexPageLimitException")
+        void searchEpisodes_flagOn_zhBothPageExceedsLimit_throws() {
+            EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+            when(request.getQ()).thenReturn("podcast");
+            when(request.getPage()).thenReturn(6);
+            when(request.getSize()).thenReturn(10);
+            when(request.getLang()).thenReturn("zh-both");
+            when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+            when(indexRouter.isCrossIndex("zh-both")).thenReturn(true);
+
+            assertThrows(CrossIndexPageLimitException.class,
+                    () -> searchServiceWithFlag.searchEpisodes(request));
+        }
+
+        @Test
+        @DisplayName("flag on: uses IndexRouter to resolve single-lang index")
+        void searchEpisodes_flagOn_singleLang_usesIndexRouter() {
+            EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+            when(request.getQ()).thenReturn("podcast");
+            when(request.getPage()).thenReturn(1);
+            when(request.getSize()).thenReturn(10);
+            when(request.getLang()).thenReturn("zh-tw");
+            when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+            when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
+            when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+
+            String queryJson = "{\"query\":{\"match\":{}}}";
+            when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(queryJson);
+
+            @SuppressWarnings("unchecked")
+            SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
+            HitsMetadata<JsonNode> mockHits = mock(HitsMetadata.class);
+            TotalHits totalHits = new TotalHits.Builder().value(5).relation(TotalHitsRelation.Eq).build();
+            when(mockHits.total()).thenReturn(totalHits);
+            when(mockEsResponse.hits()).thenReturn(mockHits);
+            when(esClient.search(eq("episodes-zh-tw"), eq(queryJson))).thenReturn(mockEsResponse);
+
+            EpisodeSearchResponseData data = new EpisodeSearchResponseData(1, 10, 5, List.of());
+            when(episodeMapper.toResponse(mockEsResponse, request)).thenReturn(EpisodeSearchResponse.ok(data));
+
+            EpisodeSearchResponse response = searchServiceWithFlag.searchEpisodes(request);
+
+            assertEquals("ok", response.status());
+            verify(indexRouter).resolveIndex("zh-tw");
+            verify(esClient).search("episodes-zh-tw", queryJson);
+        }
+
+        @Test
+        @DisplayName("flag on: response contains a non-null requestId (UUID)")
+        void searchEpisodes_flagOn_responseContainsRequestId() {
+            EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+            when(request.getQ()).thenReturn("podcast");
+            when(request.getPage()).thenReturn(1);
+            when(request.getSize()).thenReturn(10);
+            when(request.getLang()).thenReturn("zh-tw");
+            when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+            when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
+            when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+
+            String queryJson = "{\"query\":{\"match\":{}}}";
+            when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(queryJson);
+
+            @SuppressWarnings("unchecked")
+            SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
+            HitsMetadata<JsonNode> mockHits = mock(HitsMetadata.class);
+            TotalHits totalHits = new TotalHits.Builder().value(5).relation(TotalHitsRelation.Eq).build();
+            when(mockHits.total()).thenReturn(totalHits);
+            when(mockEsResponse.hits()).thenReturn(mockHits);
+            when(esClient.search(anyString(), anyString())).thenReturn(mockEsResponse);
+
+            EpisodeSearchResponseData data = new EpisodeSearchResponseData(1, 10, 5, List.of());
+            when(episodeMapper.toResponse(mockEsResponse, request)).thenReturn(EpisodeSearchResponse.ok(data));
+
+            EpisodeSearchResponse response = searchServiceWithFlag.searchEpisodes(request);
+
+            assertNotNull(response.searchRequestId());
+            // UUID format: 8-4-4-4-12 hex chars
+            assertTrue(response.searchRequestId().matches(
+                    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"));
+        }
+
+        @Test
+        @DisplayName("flag off: IndexRouter is never called")
+        void searchEpisodes_flagOff_indexRouterNotCalled() {
+            EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+            when(request.getQ()).thenReturn("podcast");
+            when(request.getPage()).thenReturn(1);
+            when(request.getSize()).thenReturn(10);
+            when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+
+            String queryJson = "{\"query\":{\"match\":{}}}";
+            when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(queryJson);
+
+            @SuppressWarnings("unchecked")
+            SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
+            HitsMetadata<JsonNode> mockHits = mock(HitsMetadata.class);
+            TotalHits totalHits = new TotalHits.Builder().value(5).relation(TotalHitsRelation.Eq).build();
+            when(mockHits.total()).thenReturn(totalHits);
+            when(mockEsResponse.hits()).thenReturn(mockHits);
+            when(esClient.search(eq("episodes"), eq(queryJson))).thenReturn(mockEsResponse);
+
+            EpisodeSearchResponseData data = new EpisodeSearchResponseData(1, 10, 5, List.of());
+            when(episodeMapper.toResponse(mockEsResponse, request)).thenReturn(EpisodeSearchResponse.ok(data));
+
+            searchService.searchEpisodes(request);
+
+            verifyNoInteractions(indexRouter);
+        }
     }
 }
