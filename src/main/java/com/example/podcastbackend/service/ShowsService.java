@@ -10,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,11 +73,11 @@ public class ShowsService {
                 }
             }
 
-            log.info("Batch fetched {} shows from ES", results.size());
+            log.info("shows_batch_fetched", kv("count", results.size()));
             return ShowBatchResponse.ok(results);
 
         } catch (Exception e) {
-            log.error("Failed to batch fetch shows", e);
+            log.error("shows_batch_fetch_failed", kv("error", e.getMessage()), e);
             return ShowBatchResponse.error("ES_ERROR", e.getMessage());
         }
     }

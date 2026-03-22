@@ -1,0 +1,21 @@
+<configuration>
+  <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <fieldNames>
+        <timestamp>timestamp</timestamp>
+        <message>message</message>
+        <logger>logger</logger>
+        <level>level</level>
+        <version>[ignore]</version>
+        <thread>[ignore]</thread>
+        <levelValue>[ignore]</levelValue>
+      </fieldNames>
+      <customFields>{"service":"podcast-backend"}</customFields>
+      <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX</timestampPattern>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="JSON_STDOUT" />
+  </root>
+</configuration>

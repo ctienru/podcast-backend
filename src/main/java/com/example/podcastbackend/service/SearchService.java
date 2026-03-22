@@ -21,6 +21,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.util.List;
 
 @Service
@@ -66,8 +68,9 @@ public class SearchService {
     public ShowSearchResponse searchShows(ShowSearchRequest request) {
         var mode = request.getSearchMode();
 
-        log.info("Searching shows with query: '{}', mode: {}, page: {}, size: {}",
-                request.getQ(), mode, request.getPage(), request.getSize());
+        log.info("search_shows_start",
+                kv("query", request.getQ()), kv("mode", mode),
+                kv("page", request.getPage()), kv("size", request.getSize()));
 
         return switch (mode) {
             case BM25 -> searchShowsBm25(request);
@@ -81,13 +84,13 @@ public class SearchService {
         var esResult = esClient.search(showsIndex, queryJson);
         var response = showMapper.toResponse(esResult, request);
 
-        log.debug("BM25 show search completed, found {} results", esResult.hits().total().value());
+        log.debug("search_shows_bm25_completed", kv("count", esResult.hits().total().value()));
         return response;
     }
 
     private ShowSearchResponse searchShowsKnn(ShowSearchRequest request) {
         if (!embeddingService.isAvailable()) {
-            log.warn("Embedding service not available, falling back to BM25");
+            log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "shows"));
             return searchShowsBm25(request);
         }
 
@@ -96,13 +99,13 @@ public class SearchService {
         var esResult = esClient.search(showsIndex, queryJson);
         var response = showMapper.toResponse(esResult, request);
 
-        log.debug("kNN show search completed, found {} results", esResult.hits().total().value());
+        log.debug("search_shows_knn_completed", kv("count", esResult.hits().total().value()));
         return response;
     }
 
     private ShowSearchResponse searchShowsHybrid(ShowSearchRequest request) {
         if (!embeddingService.isAvailable()) {
-            log.warn("Embedding service not available, falling back to BM25");
+            log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "shows"));
             return searchShowsBm25(request);
         }
 
@@ -139,10 +142,10 @@ public class SearchService {
                 items
         );
 
-        log.info("Hybrid show search completed: bm25={}, knn={}, fused={}",
-                bm25Result.hits().hits().size(),
-                knnResult.hits().hits().size(),
-                fusedResults.size());
+        log.info("search_shows_hybrid_completed",
+                kv("bm25_count", bm25Result.hits().hits().size()),
+                kv("knn_count", knnResult.hits().hits().size()),
+                kv("fused_count", fusedResults.size()));
 
         return ShowSearchResponse.ok(data);
     }
@@ -150,8 +153,9 @@ public class SearchService {
     public EpisodeSearchResponse searchEpisodes(EpisodeSearchRequest request) {
         var mode = request.getSearchMode();
 
-        log.info("Searching episodes with query: '{}', mode: {}, page: {}, size: {}",
-                request.getQ(), mode, request.getPage(), request.getSize());
+        log.info("search_episodes_start",
+                kv("query", request.getQ()), kv("mode", mode),
+                kv("page", request.getPage()), kv("size", request.getSize()));
 
         return switch (mode) {
             case BM25 -> searchEpisodesBm25(request);
@@ -166,13 +170,13 @@ public class SearchService {
         var esResult = esClient.search(episodesIndex, queryJson);
         var response = episodeMapper.toResponse(esResult, request);
 
-        log.debug("BM25 search completed, found {} results", esResult.hits().total().value());
+        log.debug("search_episodes_bm25_completed", kv("count", esResult.hits().total().value()));
         return response;
     }
 
     private EpisodeSearchResponse searchEpisodesKnn(EpisodeSearchRequest request) {
         if (!embeddingService.isAvailable()) {
-            log.warn("Embedding service not available, falling back to BM25");
+            log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "episodes"));
             return searchEpisodesBm25(request);
         }
 
@@ -181,13 +185,13 @@ public class SearchService {
         var esResult = esClient.search(episodesIndex, queryJson);
         var response = episodeMapper.toResponse(esResult, request);
 
-        log.debug("kNN search completed, found {} results", esResult.hits().total().value());
+        log.debug("search_episodes_knn_completed", kv("count", esResult.hits().total().value()));
         return response;
     }
 
     private EpisodeSearchResponse searchEpisodesHybrid(EpisodeSearchRequest request) {
         if (!embeddingService.isAvailable()) {
-            log.warn("Embedding service not available, falling back to BM25");
+            log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "episodes"));
             return searchEpisodesBm25(request);
         }
 
@@ -224,10 +228,10 @@ public class SearchService {
                 items
         );
 
-        log.info("Hybrid search completed: bm25={}, knn={}, fused={}",
-                bm25Result.hits().hits().size(),
-                knnResult.hits().hits().size(),
-                fusedResults.size());
+        log.info("search_episodes_hybrid_completed",
+                kv("bm25_count", bm25Result.hits().hits().size()),
+                kv("knn_count", knnResult.hits().hits().size()),
+                kv("fused_count", fusedResults.size()));
 
         return EpisodeSearchResponse.ok(data);
     }
@@ -237,7 +241,7 @@ public class SearchService {
         var esResult = esClient.search(episodesIndex, queryJson);
         var response = episodeMapper.toResponse(esResult, request);
 
-        log.debug("Exact search completed, found {} results", esResult.hits().total().value());
+        log.debug("search_episodes_exact_completed", kv("count", esResult.hits().total().value()));
         return response;
     }
 }
