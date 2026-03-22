@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,179 +15,167 @@ class EpisodeSearchQueryBuilderTest {
     @BeforeEach
     void setUp() throws Exception {
         queryBuilder = new EpisodeSearchQueryBuilder(
-                "podcast-spec/es/search_episodes/bm25.query.template.mustache",
-                "podcast-spec/es/search_episodes/knn.query.template.mustache",
-                "podcast-spec/es/search_episodes/exact.query.template.mustache");
+                "podcast-spec/es/search_episodes_zh_tw/query.template.mustache",
+                "podcast-spec/es/search_episodes_zh_cn/query.template.mustache",
+                "podcast-spec/es/search_episodes_en/query.template.mustache");
     }
 
     // =====================
-    // Time Decay Tests
+    // Language-specific field tests
     // =====================
 
     @Test
-    void buildBm25Query_withTimeDecayEnabled_includesFunctionScore() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
+    void buildBm25Query_zhTw_usesChineseFields() {
+        EpisodeSearchRequest request = createRequest("人工智慧", "zh-tw");
 
         String query = queryBuilder.buildBm25Query(request);
 
-        assertTrue(query.contains("function_score"), "Query should contain function_score");
-        assertTrue(query.contains("gauss"), "Query should contain gauss decay function");
-        assertTrue(query.contains("published_at"), "Query should decay on published_at field");
-        assertTrue(query.contains("90d"), "Default scale should be 90d");
-        assertTrue(query.contains("0.5"), "Default decay rate should be 0.5");
+        assertTrue(query.contains("title.chinese"), "zh-tw query should use title.chinese");
+        assertTrue(query.contains("description.chinese"), "zh-tw query should use description.chinese");
     }
 
     @Test
-    void buildBm25Query_withTimeDecayDisabled_excludesFunctionScore() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
-        setField(request, "timeDecay", false);
+    void buildBm25Query_zhCn_usesChineseFields() {
+        EpisodeSearchRequest request = createRequest("人工智能", "zh-cn");
 
         String query = queryBuilder.buildBm25Query(request);
 
-        assertFalse(query.contains("function_score"), "Query should not contain function_score");
-        assertFalse(query.contains("gauss"), "Query should not contain gauss decay function");
-        assertTrue(query.contains("bool"), "Query should still contain bool query");
+        assertTrue(query.contains("title.chinese"), "zh-cn query should use title.chinese");
+        assertTrue(query.contains("description.chinese"), "zh-cn query should use description.chinese");
     }
 
     @Test
-    void buildBm25Query_withCustomTimeDecayScale_usesCustomScale() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
-        setField(request, "timeDecayScale", "60d");
+    void buildBm25Query_en_usesStandardFields() {
+        EpisodeSearchRequest request = createRequest("AI podcast", "en");
 
         String query = queryBuilder.buildBm25Query(request);
 
-        assertTrue(query.contains("60d"), "Query should use custom scale 60d");
-        assertFalse(query.contains("\"90d\""), "Query should not use default scale");
+        assertFalse(query.contains("title.chinese"), "en query should not use title.chinese");
+        assertTrue(query.contains("\"title^"), "en query should use title field");
+        assertTrue(query.contains("description^"), "en query should use description field");
     }
 
+    // =====================
+    // No language filter (v2: routing is index-level)
+    // =====================
+
     @Test
-    void buildBm25Query_withCustomTimeDecayRate_usesCustomRate() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
-        setField(request, "timeDecayRate", 0.3);
+    void buildBm25Query_noLanguageFilter() {
+        EpisodeSearchRequest request = createRequest("podcast", "zh-tw");
 
         String query = queryBuilder.buildBm25Query(request);
 
-        assertTrue(query.contains("0.3"), "Query should use custom decay rate 0.3");
+        assertFalse(query.contains("\"terms\""), "Query should not contain terms filter");
+        assertTrue(query.contains("\"filter\": []"), "Filter section should be empty");
     }
 
     @Test
-    void buildBm25QueryForHybrid_withTimeDecayEnabled_includesFunctionScore() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
+    void buildExactQuery_noLanguageFilter() {
+        EpisodeSearchRequest request = createRequest("podcast", "en");
 
-        String query = queryBuilder.buildBm25QueryForHybrid(request, 100);
+        String query = queryBuilder.buildExactQuery(request);
 
-        assertTrue(query.contains("function_score"), "Hybrid query should contain function_score");
-        assertTrue(query.contains("gauss"), "Hybrid query should contain gauss decay function");
-    }
-
-    @Test
-    void buildBm25QueryForHybrid_withTimeDecayDisabled_excludesFunctionScore() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
-        setField(request, "timeDecay", false);
-
-        String query = queryBuilder.buildBm25QueryForHybrid(request, 100);
-
-        assertFalse(query.contains("function_score"), "Hybrid query should not contain function_score");
+        assertFalse(query.contains("\"terms\""), "Exact query should not contain terms filter");
+        assertTrue(query.contains("\"filter\": []"), "Filter section should be empty");
     }
 
     // =====================
-    // Chinese Field Tests
+    // Exact match
     // =====================
 
     @Test
-    void buildBm25Query_includesChineseFields() {
-        EpisodeSearchRequest request = createRequest("人工智慧");
-
-        String query = queryBuilder.buildBm25Query(request);
-
-        assertTrue(query.contains("title.chinese"), "Query should include title.chinese field");
-        assertTrue(query.contains("description.chinese"), "Query should include description.chinese field");
-    }
-
-    // =====================
-    // Language Filter Tests
-    // =====================
-
-    @Test
-    void buildBm25Query_withLanguageFilter_includesLanguageTerms() {
-        EpisodeSearchRequest request = createRequest("podcast");
-        setField(request, "language", List.of("en", "zh"));
-
-        String query = queryBuilder.buildBm25Query(request);
-
-        assertTrue(query.contains("language"), "Query should contain language filter");
-        assertTrue(query.contains("en") && query.contains("zh"), "Query should filter by specified languages");
-    }
-
-    @Test
-    void buildBm25Query_withoutLanguageFilter_excludesLanguageTerms() {
-        EpisodeSearchRequest request = createRequest("podcast");
-
-        String query = queryBuilder.buildBm25Query(request);
-
-        // The query should not have the terms filter for language
-        // Note: "language" appears in _source.includes which is expected
-        assertFalse(query.contains("\"terms\""), "Query should not contain terms filter when language not specified");
-        assertFalse(query.contains("filter"), "Query should not contain filter section when language not specified");
-    }
-
-    // =====================
-    // Exact Match Tests
-    // =====================
-
-    @Test
-    void buildExactQuery_usesMatchPhrase() {
-        EpisodeSearchRequest request = createRequest("AI podcast");
+    void buildExactQuery_zhTw_usesMatchPhrase() {
+        EpisodeSearchRequest request = createRequest("人工智慧", "zh-tw");
 
         String query = queryBuilder.buildExactQuery(request);
 
         assertTrue(query.contains("match_phrase"), "Exact query should use match_phrase");
         assertFalse(query.contains("multi_match"), "Exact query should not use multi_match");
-        assertFalse(query.contains("function_score"), "Exact query should not use function_score (no time decay)");
+        assertTrue(query.contains("title.chinese"), "zh-tw exact query should use title.chinese");
     }
 
     @Test
-    void buildExactQuery_includesChineseFields() {
-        EpisodeSearchRequest request = createRequest("人工智慧");
+    void buildExactQuery_en_usesMatchPhrase() {
+        EpisodeSearchRequest request = createRequest("AI podcast", "en");
 
         String query = queryBuilder.buildExactQuery(request);
 
-        assertTrue(query.contains("title.chinese"), "Exact query should include title.chinese field");
-        assertTrue(query.contains("description.chinese"), "Exact query should include description.chinese field");
+        assertTrue(query.contains("match_phrase"), "Exact query should use match_phrase");
+        assertFalse(query.contains("title.chinese"), "en exact query should not use title.chinese");
+    }
+
+    // =====================
+    // KNN mode
+    // =====================
+
+    @Test
+    void buildKnnQueryForHybrid_containsKnnSection() {
+        float[] vector = new float[]{0.1f, 0.2f, 0.3f};
+
+        String query = queryBuilder.buildKnnQueryForHybrid("zh-tw", vector, 100);
+
+        assertTrue(query.contains("\"knn\""), "KNN query should contain knn section");
+        assertTrue(query.contains("title_vector"), "KNN query should reference title_vector field");
     }
 
     @Test
-    void buildExactQuery_withLanguageFilter_includesFilter() {
-        EpisodeSearchRequest request = createRequest("podcast");
-        setField(request, "language", List.of("en"));
+    void buildKnnQueryForHybrid_doesNotContainQuerySection() {
+        float[] vector = new float[]{0.1f, 0.2f, 0.3f};
 
-        String query = queryBuilder.buildExactQuery(request);
+        String query = queryBuilder.buildKnnQueryForHybrid("zh-tw", vector, 100);
 
-        assertTrue(query.contains("filter"), "Exact query should include language filter");
-        assertTrue(query.contains("\"en\""), "Exact query should filter by specified language");
+        assertFalse(query.contains("multi_match"), "KNN-only query should not contain multi_match");
+        assertFalse(query.contains("match_phrase"), "KNN-only query should not contain match_phrase");
     }
 
     @Test
-    void buildExactQuery_includesPaginationParams() {
-        EpisodeSearchRequest request = createRequest("test");
+    void buildBm25Query_doesNotContainKnnSection() {
+        EpisodeSearchRequest request = createRequest("podcast", "zh-tw");
+
+        String query = queryBuilder.buildBm25Query(request);
+
+        assertFalse(query.contains("\"knn\""), "BM25 query should not contain knn section");
+        assertTrue(query.contains("multi_match"), "BM25 query should use multi_match");
+    }
+
+    // =====================
+    // Pagination
+    // =====================
+
+    @Test
+    void buildBm25Query_correctPaginationParams() {
+        EpisodeSearchRequest request = createRequest("test", "zh-tw");
         setField(request, "page", 2);
         setField(request, "size", 10);
 
+        String query = queryBuilder.buildBm25Query(request);
+
+        assertTrue(query.contains("\"from\": 10"), "from should be (page-1)*size = 10");
+        assertTrue(query.contains("\"size\": 10"), "size should be 10");
+    }
+
+    @Test
+    void buildExactQuery_correctPaginationParams() {
+        EpisodeSearchRequest request = createRequest("test", "en");
+        setField(request, "page", 3);
+        setField(request, "size", 5);
+
         String query = queryBuilder.buildExactQuery(request);
 
-        assertTrue(query.contains("\"from\": 10"), "Exact query should have correct from value");
-        assertTrue(query.contains("\"size\": 10"), "Exact query should have correct size value");
+        assertTrue(query.contains("\"from\": 10"), "from should be (page-1)*size = 10");
+        assertTrue(query.contains("\"size\": 5"), "size should be 5");
     }
 
     // =====================
     // Helper Methods
     // =====================
 
-    private EpisodeSearchRequest createRequest(String query) {
+    private EpisodeSearchRequest createRequest(String query, String lang) {
         EpisodeSearchRequest request = new EpisodeSearchRequest();
         setField(request, "q", query);
         setField(request, "page", 1);
         setField(request, "size", 20);
+        setField(request, "lang", lang);
         return request;
     }
 

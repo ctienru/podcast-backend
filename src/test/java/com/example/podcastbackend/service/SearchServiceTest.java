@@ -265,7 +265,7 @@ class SearchServiceTest {
         String bm25Query = "{\"query\":{\"match\":{}},\"size\":100}";
         String knnQuery = "{\"knn\":{},\"size\":100}";
         when(episodeQueryBuilder.buildBm25QueryForHybrid(eq(request), eq(100))).thenReturn(bm25Query);
-        when(episodeQueryBuilder.buildKnnQueryForHybrid(eq(mockVector), eq(100))).thenReturn(knnQuery);
+        when(episodeQueryBuilder.buildKnnQueryForHybrid(any(), eq(mockVector), eq(100))).thenReturn(knnQuery);
 
         @SuppressWarnings("unchecked")
         SearchResponse<JsonNode> bm25Response = mock(SearchResponse.class);

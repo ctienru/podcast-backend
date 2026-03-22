@@ -343,7 +343,7 @@ public class SearchService {
 
         // 2. Execute kNN query
         float[] queryVector = embeddingService.encode(request.getQ());
-        String knnQueryJson = episodeQueryBuilder.buildKnnQueryForHybrid(queryVector, RRF_WINDOW_SIZE);
+        String knnQueryJson = episodeQueryBuilder.buildKnnQueryForHybrid(request.getLang(), queryVector, RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(targetIndex, knnQueryJson);
 
         // 3. Apply RRF fusion
