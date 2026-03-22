@@ -15,11 +15,12 @@ public class EpisodeSearchRequest {
     private Integer page = 1;
 
     @Min(value = 1, message = "Size must be at least 1")
-    @Max(value = 100, message = "Size must not exceed 100")
+    @Max(value = 50, message = "Size must not exceed 50")
     private Integer size = 20;
 
     private String sort; // "relevance" | "date"
     private List<String> language;
+    private String lang; // v2: "zh-tw" | "zh-cn" | "en" | "zh-both"
     private String mode; // "bm25" | "knn" | "hybrid" (default: "bm25" for backward compatibility)
 
     // Time decay parameters (recency boosting)
@@ -49,6 +50,10 @@ public class EpisodeSearchRequest {
 
     public String getMode() {
         return mode;
+    }
+
+    public String getLang() {
+        return lang;
     }
 
     public Boolean getTimeDecay() {
