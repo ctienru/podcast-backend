@@ -1,4 +1,5 @@
 search:
+  default-lang: ${SEARCH_DEFAULT_LANG:zh-tw}
   show:
     template:
       path: podcast-spec/es/search_shows/query.template.mustache
@@ -28,7 +29,13 @@ elasticsearch:
   socket-timeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   indices:
     shows: ${ELASTICSEARCH_INDEX_SHOWS:shows}
-    episodes: ${ELASTICSEARCH_INDEX_EPISODES:episodes}
+    episodes:
+      zh-tw: ${ELASTICSEARCH_INDEX_EPISODES_ZH_TW:episodes-zh-tw}
+      zh-cn: ${ELASTICSEARCH_INDEX_EPISODES_ZH_CN:episodes-zh-cn}
+      en: ${ELASTICSEARCH_INDEX_EPISODES_EN:episodes-en}
+
+features:
+  language-split: ${ENABLE_LANGUAGE_SPLIT:false}
 
 # Rankings cache configuration
 rankings:
