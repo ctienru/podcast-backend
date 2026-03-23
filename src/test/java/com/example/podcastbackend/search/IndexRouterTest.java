@@ -69,6 +69,12 @@ class IndexRouterTest {
         assertEquals(List.of("episodes-en"), router.resolveIndices("en"));
     }
 
+    @Test
+    void resolveIndices_null_usesDefaultLang() {
+        // defaultLang = "zh-tw", so null should resolve to zh-tw single index
+        assertEquals(List.of("episodes-zh-tw"), router.resolveIndices(null));
+    }
+
     // --- isCrossIndex ---
 
     @Test
@@ -84,5 +90,34 @@ class IndexRouterTest {
     @Test
     void isCrossIndex_en_returnsFalse() {
         assertFalse(router.isCrossIndex("en"));
+    }
+
+    @Test
+    void isCrossIndex_null_usesDefaultLang() {
+        // defaultLang = "zh-tw", not zh-both, so null should be false
+        assertFalse(router.isCrossIndex(null));
+    }
+
+    // --- resolveLangParam ---
+
+    @Test
+    void resolveLangParam_zhTw_returnsZhTw() {
+        assertEquals(LangParam.ZH_TW, router.resolveLangParam("zh-tw"));
+    }
+
+    @Test
+    void resolveLangParam_en_returnsEn() {
+        assertEquals(LangParam.EN, router.resolveLangParam("en"));
+    }
+
+    @Test
+    void resolveLangParam_null_usesDefaultLang() {
+        // defaultLang = "zh-tw"
+        assertEquals(LangParam.ZH_TW, router.resolveLangParam(null));
+    }
+
+    @Test
+    void resolveLangParam_zhBoth_returnsZhBoth() {
+        assertEquals(LangParam.ZH_BOTH, router.resolveLangParam("zh-both"));
     }
 }

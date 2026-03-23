@@ -315,13 +315,13 @@ public class SearchService {
     }
 
     private EpisodeSearchResponse searchEpisodesKnn(EpisodeSearchRequest request, String targetIndex) {
-        EmbeddingProfile profile = resolveEmbeddingProfile(
-                LangParam.fromString(request.getLang()), request.getSearchMode());
-
         if (!cachedEmbeddingService.isAvailable()) {
             log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "episodes"));
             return degradedEpisodesToBm25(request, targetIndex, "embedding service unavailable");
         }
+
+        EmbeddingProfile profile = resolveEmbeddingProfile(
+                indexRouter.resolveLangParam(request.getLang()), request.getSearchMode());
 
         float[] queryVector;
         try {
@@ -339,13 +339,13 @@ public class SearchService {
     }
 
     private EpisodeSearchResponse searchEpisodesHybrid(EpisodeSearchRequest request, String targetIndex) {
-        EmbeddingProfile profile = resolveEmbeddingProfile(
-                LangParam.fromString(request.getLang()), request.getSearchMode());
-
         if (!cachedEmbeddingService.isAvailable()) {
             log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "episodes"));
             return degradedEpisodesToBm25(request, targetIndex, "embedding service unavailable");
         }
+
+        EmbeddingProfile profile = resolveEmbeddingProfile(
+                indexRouter.resolveLangParam(request.getLang()), request.getSearchMode());
 
         // 1. Execute BM25 query
         String bm25QueryJson = episodeQueryBuilder.buildBm25QueryForHybrid(request, RRF_WINDOW_SIZE);

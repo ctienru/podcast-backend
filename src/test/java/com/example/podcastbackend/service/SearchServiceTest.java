@@ -14,6 +14,7 @@ import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
 import com.example.podcastbackend.response.*;
 import com.example.podcastbackend.search.IndexRouter;
+import com.example.podcastbackend.search.LangParam;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
 import com.example.podcastbackend.search.mapper.ShowSearchMapper;
@@ -200,6 +201,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.KNN);
         when(indexRouter.isCrossIndex("en")).thenReturn(false);
         when(indexRouter.resolveIndex("en")).thenReturn("episodes-en");
+        when(indexRouter.resolveLangParam("en")).thenReturn(LangParam.EN);
         when(cachedEmbeddingService.isAvailable()).thenReturn(true);
 
         float[] mockVector = new float[384];
@@ -274,6 +276,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.HYBRID);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+        when(indexRouter.resolveLangParam("zh-tw")).thenReturn(LangParam.ZH_TW);
         when(cachedEmbeddingService.isAvailable()).thenReturn(true);
 
         float[] mockVector = new float[384];

@@ -75,7 +75,7 @@ public class PodcastSearchEmbeddingProvider {
         } catch (EmbeddingUnavailableException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("embedding_provider_failed", "error", e.getMessage());
+            log.warn("embedding_provider_failed error={}", e.getMessage());
             throw new EmbeddingUnavailableException("Failed to call podcast-search /embed: " + e.getMessage(), e);
         }
     }

@@ -3,6 +3,7 @@ package com.example.podcastbackend.request;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -11,9 +12,11 @@ public class EpisodeSearchRequest {
     @NotBlank(message = "Search query cannot be empty")
     private String q;
 
+    @NotNull(message = "Page must not be null")
     @Min(value = 1, message = "Page must be at least 1")
     private Integer page = 1;
 
+    @NotNull(message = "Size must not be null")
     @Min(value = 1, message = "Size must be at least 1")
     @Max(value = 50, message = "Size must not exceed 50")
     private Integer size = 20;
@@ -21,12 +24,7 @@ public class EpisodeSearchRequest {
     private String sort; // "relevance" | "date"
     private List<String> language;
     private String lang; // v2: "zh-tw" | "zh-cn" | "en" | "zh-both"
-    private String mode; // "bm25" | "knn" | "hybrid" (default: "bm25" for backward compatibility)
-
-    // Time decay parameters (recency boosting)
-    private Boolean timeDecay = true; // Enable/disable time decay (default: true)
-    private String timeDecayScale = "90d"; // Decay scale (default: 30 days)
-    private Double timeDecayRate = 0.5; // Decay rate at scale distance (default: 0.5)
+    private String mode; // "bm25" | "knn" | "hybrid" (default: "bm25")
 
     public String getQ() {
         return q;
@@ -54,22 +52,6 @@ public class EpisodeSearchRequest {
 
     public String getLang() {
         return lang;
-    }
-
-    public Boolean getTimeDecay() {
-        return timeDecay;
-    }
-
-    public String getTimeDecayScale() {
-        return timeDecayScale;
-    }
-
-    public Double getTimeDecayRate() {
-        return timeDecayRate;
-    }
-
-    public boolean isTimeDecayEnabled() {
-        return timeDecay == null || timeDecay; // Default to true if not specified
     }
 
     public boolean sortByDate() {

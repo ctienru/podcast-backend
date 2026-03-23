@@ -30,7 +30,7 @@ public class IndexRouter {
      * Throws for zh-both — use resolveIndices() instead.
      */
     public String resolveIndex(String lang) {
-        return switch (LangParam.fromString(lang != null ? lang : defaultLang)) {
+        return switch (resolveLangParam(lang)) {
             case ZH_TW -> zhTwIndex;
             case ZH_CN -> zhCnIndex;
             case EN -> enIndex;
@@ -44,13 +44,17 @@ public class IndexRouter {
      * zh-both returns both zh-tw and zh-cn indices.
      */
     public List<String> resolveIndices(String lang) {
-        if (LangParam.ZH_BOTH == LangParam.fromString(lang)) {
+        if (LangParam.ZH_BOTH == resolveLangParam(lang)) {
             return List.of(zhTwIndex, zhCnIndex);
         }
         return List.of(resolveIndex(lang));
     }
 
     public boolean isCrossIndex(String lang) {
-        return LangParam.ZH_BOTH == LangParam.fromString(lang);
+        return LangParam.ZH_BOTH == resolveLangParam(lang);
+    }
+
+    public LangParam resolveLangParam(String lang) {
+        return LangParam.fromString(lang != null ? lang : defaultLang);
     }
 }

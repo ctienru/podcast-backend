@@ -48,7 +48,8 @@ public class CachedEmbeddingService implements EmbeddingService {
     }
 
     public float[] embed(String query, EmbeddingProfile profile) {
-        String key = "embedding:" + profile.name().toLowerCase() + ":" + normalizer.normalize(query, profile);
+        String normalized = normalizer.normalize(query, profile);
+        String key = "embedding:" + profile.name().toLowerCase() + ":" + normalized;
 
         float[] cached = cache.getIfPresent(key);
         if (cached != null) {
@@ -59,7 +60,7 @@ public class CachedEmbeddingService implements EmbeddingService {
 
         try {
             float[] vector = apiLatency.recordCallable(
-                    () -> circuitBreaker.executeSupplier(() -> provider.embed(query, profile)));
+                    () -> circuitBreaker.executeSupplier(() -> provider.embed(normalized, profile)));
             cache.put(key, vector);
             return vector;
         } catch (CallNotPermittedException e) {
