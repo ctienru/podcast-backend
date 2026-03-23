@@ -10,9 +10,10 @@ search:
 # Embedding service configuration
 embedding:
   service:
-    type: ${EMBEDDING_SERVICE_TYPE:remote}  # remote | stub
     url: ${EMBEDDING_SERVICE_URL:http://localhost:8081}
-    timeout: ${EMBEDDING_SERVICE_TIMEOUT:5000}
+  cache:
+    ttl-minutes: ${EMBEDDING_CACHE_TTL_MINUTES:30}
+    max-size: ${EMBEDDING_CACHE_MAX_SIZE:1000}
 
 # Elasticsearch configuration
 elasticsearch:
@@ -70,6 +71,11 @@ resilience4j:
         timeout-duration: 0s
   circuitbreaker:
     instances:
+      embeddingApi:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
       appleApi:
         sliding-window-size: 10
         failure-rate-threshold: 50

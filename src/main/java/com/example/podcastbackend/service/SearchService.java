@@ -13,7 +13,14 @@ import com.example.podcastbackend.response.EpisodeSearchResponseData;
 import com.example.podcastbackend.response.ShowSearchItem;
 import com.example.podcastbackend.response.ShowSearchResponse;
 import com.example.podcastbackend.response.ShowSearchResponseData;
+import com.example.podcastbackend.embedding.CachedEmbeddingService;
+import com.example.podcastbackend.embedding.EmbeddingProfile;
+import com.example.podcastbackend.embedding.EmbeddingUnavailableException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+
 import com.example.podcastbackend.search.IndexRouter;
+import com.example.podcastbackend.search.LangParam;
 import com.example.podcastbackend.search.client.ElasticsearchSearchClient;
 import com.example.podcastbackend.search.fusion.RrfFusion;
 import com.example.podcastbackend.search.mapper.EpisodeSearchMapper;
@@ -46,11 +53,12 @@ public class SearchService {
     private final ElasticsearchSearchClient esClient;
     private final ShowSearchMapper showMapper;
     private final EpisodeSearchMapper episodeMapper;
-    private final EmbeddingService embeddingService;
+    private final CachedEmbeddingService cachedEmbeddingService;
     private final RrfFusion rrfFusion;
     private final IndexRouter indexRouter;
     private final QueryLogService queryLogService;
     private final String showsIndex;
+    private final Counter degradedToBm25Counter;
 
     public SearchService(
             ShowSearchQueryBuilder showQueryBuilder,
@@ -58,9 +66,10 @@ public class SearchService {
             ElasticsearchSearchClient esClient,
             ShowSearchMapper showMapper,
             EpisodeSearchMapper episodeMapper,
-            EmbeddingService embeddingService,
+            CachedEmbeddingService cachedEmbeddingService,
             IndexRouter indexRouter,
             QueryLogService queryLogService,
+            MeterRegistry meterRegistry,
             @Value("${elasticsearch.indices.shows:shows}") String showsIndex
     ) {
         this.showQueryBuilder = showQueryBuilder;
@@ -68,11 +77,12 @@ public class SearchService {
         this.esClient = esClient;
         this.showMapper = showMapper;
         this.episodeMapper = episodeMapper;
-        this.embeddingService = embeddingService;
+        this.cachedEmbeddingService = cachedEmbeddingService;
         this.rrfFusion = new RrfFusion(RRF_RANK_CONSTANT);
         this.indexRouter = indexRouter;
         this.queryLogService = queryLogService;
         this.showsIndex = showsIndex;
+        this.degradedToBm25Counter = meterRegistry.counter("search.degraded_to_bm25");
     }
 
     // =====================================================
@@ -103,12 +113,19 @@ public class SearchService {
     }
 
     private ShowSearchResponse searchShowsKnn(ShowSearchRequest request) {
-        if (!embeddingService.isAvailable()) {
+        if (!cachedEmbeddingService.isAvailable()) {
             log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "shows"));
-            return searchShowsBm25(request);
+            return degradedShowsToBm25(request, "embedding service unavailable");
         }
 
-        float[] queryVector = embeddingService.encode(request.getQ());
+        float[] queryVector;
+        try {
+            queryVector = cachedEmbeddingService.embed(request.getQ(), EmbeddingProfile.ZH);
+        } catch (EmbeddingUnavailableException e) {
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "shows"), kv("error", e.getMessage()));
+            return degradedShowsToBm25(request, e.getMessage());
+        }
+
         String queryJson = showQueryBuilder.buildKnnQuery(request, queryVector);
         var esResult = esClient.search(showsIndex, queryJson);
         var response = showMapper.toResponse(esResult, request);
@@ -118,9 +135,9 @@ public class SearchService {
     }
 
     private ShowSearchResponse searchShowsHybrid(ShowSearchRequest request) {
-        if (!embeddingService.isAvailable()) {
+        if (!cachedEmbeddingService.isAvailable()) {
             log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "shows"));
-            return searchShowsBm25(request);
+            return degradedShowsToBm25(request, "embedding service unavailable");
         }
 
         // 1. Execute BM25 query
@@ -128,7 +145,13 @@ public class SearchService {
         SearchResponse<JsonNode> bm25Result = esClient.search(showsIndex, bm25QueryJson);
 
         // 2. Execute kNN query
-        float[] queryVector = embeddingService.encode(request.getQ());
+        float[] queryVector;
+        try {
+            queryVector = cachedEmbeddingService.embed(request.getQ(), EmbeddingProfile.ZH);
+        } catch (EmbeddingUnavailableException e) {
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "shows"), kv("error", e.getMessage()));
+            return degradedShowsToBm25(request, e.getMessage());
+        }
         String knnQueryJson = showQueryBuilder.buildKnnQueryForHybrid(queryVector, RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(showsIndex, knnQueryJson);
 
@@ -292,12 +315,21 @@ public class SearchService {
     }
 
     private EpisodeSearchResponse searchEpisodesKnn(EpisodeSearchRequest request, String targetIndex) {
-        if (!embeddingService.isAvailable()) {
+        EmbeddingProfile profile = resolveEmbeddingProfile(
+                LangParam.fromString(request.getLang()), request.getSearchMode());
+
+        if (!cachedEmbeddingService.isAvailable()) {
             log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "episodes"));
-            return searchEpisodesBm25(request, targetIndex);
+            return degradedEpisodesToBm25(request, targetIndex, "embedding service unavailable");
         }
 
-        float[] queryVector = embeddingService.encode(request.getQ());
+        float[] queryVector;
+        try {
+            queryVector = cachedEmbeddingService.embed(request.getQ(), profile);
+        } catch (EmbeddingUnavailableException e) {
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "episodes"), kv("error", e.getMessage()));
+            return degradedEpisodesToBm25(request, targetIndex, e.getMessage());
+        }
         String queryJson = episodeQueryBuilder.buildKnnQuery(request, queryVector);
         var esResult = esClient.search(targetIndex, queryJson);
         var response = episodeMapper.toResponse(esResult, request);
@@ -307,9 +339,12 @@ public class SearchService {
     }
 
     private EpisodeSearchResponse searchEpisodesHybrid(EpisodeSearchRequest request, String targetIndex) {
-        if (!embeddingService.isAvailable()) {
+        EmbeddingProfile profile = resolveEmbeddingProfile(
+                LangParam.fromString(request.getLang()), request.getSearchMode());
+
+        if (!cachedEmbeddingService.isAvailable()) {
             log.warn("embedding_unavailable", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "episodes"));
-            return searchEpisodesBm25(request, targetIndex);
+            return degradedEpisodesToBm25(request, targetIndex, "embedding service unavailable");
         }
 
         // 1. Execute BM25 query
@@ -317,7 +352,13 @@ public class SearchService {
         SearchResponse<JsonNode> bm25Result = esClient.search(targetIndex, bm25QueryJson);
 
         // 2. Execute kNN query
-        float[] queryVector = embeddingService.encode(request.getQ());
+        float[] queryVector;
+        try {
+            queryVector = cachedEmbeddingService.embed(request.getQ(), profile);
+        } catch (EmbeddingUnavailableException e) {
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "episodes"), kv("error", e.getMessage()));
+            return degradedEpisodesToBm25(request, targetIndex, e.getMessage());
+        }
         String knnQueryJson = episodeQueryBuilder.buildKnnQueryForHybrid(request.getLang(), queryVector, RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(targetIndex, knnQueryJson);
 
@@ -360,5 +401,35 @@ public class SearchService {
 
         log.debug("search_episodes_exact_completed", kv("count", esResult.hits().total().value()));
         return response;
+    }
+
+    // =====================================================
+    // Embedding profile resolution
+    // =====================================================
+
+    private EmbeddingProfile resolveEmbeddingProfile(LangParam lang, EpisodeSearchRequest.SearchMode mode) {
+        if (mode == EpisodeSearchRequest.SearchMode.BM25 || mode == EpisodeSearchRequest.SearchMode.EXACT) {
+            return EmbeddingProfile.NONE;
+        }
+        return switch (lang) {
+            case EN -> EmbeddingProfile.EN;
+            case ZH_TW, ZH_CN, ZH_BOTH -> EmbeddingProfile.ZH;
+        };
+    }
+
+    // =====================================================
+    // Degradation helpers
+    // =====================================================
+
+    private EpisodeSearchResponse degradedEpisodesToBm25(EpisodeSearchRequest request, String targetIndex, String reason) {
+        degradedToBm25Counter.increment();
+        EpisodeSearchResponse bm25Response = searchEpisodesBm25(request, targetIndex);
+        return EpisodeSearchResponse.partial(bm25Response.data(), "embedding_unavailable: search degraded to bm25 (" + reason + ")");
+    }
+
+    private ShowSearchResponse degradedShowsToBm25(ShowSearchRequest request, String reason) {
+        degradedToBm25Counter.increment();
+        ShowSearchResponse bm25Response = searchShowsBm25(request);
+        return ShowSearchResponse.partial(bm25Response.data(), "embedding_unavailable: search degraded to bm25 (" + reason + ")");
     }
 }

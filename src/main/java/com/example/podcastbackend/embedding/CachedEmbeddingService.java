@@ -1,0 +1,84 @@
+package com.example.podcastbackend.embedding;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.example.podcastbackend.service.EmbeddingService;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
+
+@Service
+public class CachedEmbeddingService implements EmbeddingService {
+
+    private final PodcastSearchEmbeddingProvider provider;
+    private final QueryNormalizer normalizer;
+    private final Cache<String, float[]> cache;
+    private final CircuitBreaker circuitBreaker;
+    private final Counter cacheHits;
+    private final Counter cacheMisses;
+    private final Counter circuitBreakerOpen;
+    private final Timer apiLatency;
+
+    public CachedEmbeddingService(
+            PodcastSearchEmbeddingProvider provider,
+            QueryNormalizer normalizer,
+            CircuitBreakerRegistry circuitBreakerRegistry,
+            MeterRegistry meterRegistry,
+            @Value("${embedding.cache.ttl-minutes:30}") int ttlMinutes,
+            @Value("${embedding.cache.max-size:1000}") int maxSize
+    ) {
+        this.provider = provider;
+        this.normalizer = normalizer;
+        this.cache = Caffeine.newBuilder()
+                .expireAfterWrite(ttlMinutes, TimeUnit.MINUTES)
+                .maximumSize(maxSize)
+                .build();
+        this.circuitBreaker = circuitBreakerRegistry.circuitBreaker("embeddingApi");
+        this.cacheHits = meterRegistry.counter("embedding.cache.hits");
+        this.cacheMisses = meterRegistry.counter("embedding.cache.misses");
+        this.circuitBreakerOpen = meterRegistry.counter("embedding.circuit_breaker.open");
+        this.apiLatency = meterRegistry.timer("embedding.api.latency");
+    }
+
+    public float[] embed(String query, EmbeddingProfile profile) {
+        String key = "embedding:" + profile.name().toLowerCase() + ":" + normalizer.normalize(query, profile);
+
+        float[] cached = cache.getIfPresent(key);
+        if (cached != null) {
+            cacheHits.increment();
+            return cached;
+        }
+        cacheMisses.increment();
+
+        try {
+            float[] vector = apiLatency.recordCallable(
+                    () -> circuitBreaker.executeSupplier(() -> provider.embed(query, profile)));
+            cache.put(key, vector);
+            return vector;
+        } catch (CallNotPermittedException e) {
+            circuitBreakerOpen.increment();
+            throw new EmbeddingUnavailableException("Embedding circuit breaker is OPEN", e);
+        } catch (EmbeddingUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new EmbeddingUnavailableException("Embedding call failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public float[] encode(String text) {
+        return embed(text, EmbeddingProfile.ZH);
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return circuitBreaker.getState() != CircuitBreaker.State.OPEN;
+    }
+}

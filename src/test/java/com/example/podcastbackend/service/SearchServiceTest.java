@@ -6,6 +6,9 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.example.podcastbackend.exception.CrossIndexPageLimitException;
 import com.example.podcastbackend.exception.InvalidSearchParamException;
+import com.example.podcastbackend.embedding.CachedEmbeddingService;
+import com.example.podcastbackend.embedding.EmbeddingProfile;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.example.podcastbackend.log.QueryLogService;
 import com.example.podcastbackend.request.EpisodeSearchRequest;
 import com.example.podcastbackend.request.ShowSearchRequest;
@@ -39,7 +42,7 @@ class SearchServiceTest {
     @Mock private ElasticsearchSearchClient esClient;
     @Mock private ShowSearchMapper showMapper;
     @Mock private EpisodeSearchMapper episodeMapper;
-    @Mock private EmbeddingService embeddingService;
+    @Mock private CachedEmbeddingService cachedEmbeddingService;
     @Mock private IndexRouter indexRouter;
     @Mock private QueryLogService queryLogService;
 
@@ -53,9 +56,10 @@ class SearchServiceTest {
                 esClient,
                 showMapper,
                 episodeMapper,
-                embeddingService,
+                cachedEmbeddingService,
                 indexRouter,
                 queryLogService,
+                new SimpleMeterRegistry(),
                 "shows"
         );
     }
@@ -196,10 +200,10 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.KNN);
         when(indexRouter.isCrossIndex("en")).thenReturn(false);
         when(indexRouter.resolveIndex("en")).thenReturn("episodes-en");
-        when(embeddingService.isAvailable()).thenReturn(true);
+        when(cachedEmbeddingService.isAvailable()).thenReturn(true);
 
         float[] mockVector = new float[384];
-        when(embeddingService.encode("machine learning")).thenReturn(mockVector);
+        when(cachedEmbeddingService.embed("machine learning", EmbeddingProfile.EN)).thenReturn(mockVector);
 
         String queryJson = "{\"knn\":{\"field\":\"embedding\"}}";
         when(episodeQueryBuilder.buildKnnQuery(eq(request), eq(mockVector))).thenReturn(queryJson);
@@ -220,7 +224,7 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         verify(indexRouter).resolveIndex("en");
         verify(esClient).search("episodes-en", queryJson);
-        verify(embeddingService).encode("machine learning");
+        verify(cachedEmbeddingService).embed("machine learning", EmbeddingProfile.EN);
     }
 
     @Test
@@ -234,7 +238,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.KNN);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
-        when(embeddingService.isAvailable()).thenReturn(false);
+        when(cachedEmbeddingService.isAvailable()).thenReturn(false);
 
         String bm25Query = "{\"query\":{\"match\":{\"title\":\"podcast\"}}}";
         when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(bm25Query);
@@ -252,8 +256,9 @@ class SearchServiceTest {
 
         EpisodeSearchResponse response = searchService.searchEpisodes(request);
 
-        assertEquals("ok", response.status());
-        verify(embeddingService, never()).encode(anyString());
+        assertEquals("partial_success", response.status());
+        assertNotNull(response.warning());
+        verify(cachedEmbeddingService, never()).embed(any(), any());
         verify(episodeQueryBuilder, never()).buildKnnQuery(any(), any());
         verify(esClient).search("episodes-zh-tw", bm25Query);
     }
@@ -269,10 +274,10 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.HYBRID);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
-        when(embeddingService.isAvailable()).thenReturn(true);
+        when(cachedEmbeddingService.isAvailable()).thenReturn(true);
 
         float[] mockVector = new float[384];
-        when(embeddingService.encode("AI podcast")).thenReturn(mockVector);
+        when(cachedEmbeddingService.embed("AI podcast", EmbeddingProfile.ZH)).thenReturn(mockVector);
 
         String bm25Query = "{\"query\":{\"match\":{}},\"size\":100}";
         String knnQuery = "{\"knn\":{},\"size\":100}";
@@ -301,7 +306,7 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         verify(esClient).search("episodes-zh-tw", bm25Query);
         verify(esClient).search("episodes-zh-tw", knnQuery);
-        verify(embeddingService).encode("AI podcast");
+        verify(cachedEmbeddingService).embed("AI podcast", EmbeddingProfile.ZH);
     }
 
     @Test
@@ -315,7 +320,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.HYBRID);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
-        when(embeddingService.isAvailable()).thenReturn(false);
+        when(cachedEmbeddingService.isAvailable()).thenReturn(false);
 
         String bm25Query = "{\"query\":{\"match\":{\"title\":\"podcast\"}}}";
         when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(bm25Query);
@@ -333,8 +338,9 @@ class SearchServiceTest {
 
         EpisodeSearchResponse response = searchService.searchEpisodes(request);
 
-        assertEquals("ok", response.status());
-        verify(embeddingService, never()).encode(anyString());
+        assertEquals("partial_success", response.status());
+        assertNotNull(response.warning());
+        verify(cachedEmbeddingService, never()).embed(any(), any());
         verify(esClient).search("episodes-zh-tw", bm25Query);
     }
 
