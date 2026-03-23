@@ -50,9 +50,7 @@ public class SearchService {
     private final RrfFusion rrfFusion;
     private final IndexRouter indexRouter;
     private final QueryLogService queryLogService;
-    private final boolean languageSplitEnabled;
     private final String showsIndex;
-    private final String episodesIndex;
 
     public SearchService(
             ShowSearchQueryBuilder showQueryBuilder,
@@ -63,9 +61,7 @@ public class SearchService {
             EmbeddingService embeddingService,
             IndexRouter indexRouter,
             QueryLogService queryLogService,
-            @Value("${features.language-split:false}") boolean languageSplitEnabled,
-            @Value("${elasticsearch.indices.shows:shows}") String showsIndex,
-            @Value("${elasticsearch.indices.episodes:episodes}") String episodesIndex
+            @Value("${elasticsearch.indices.shows:shows}") String showsIndex
     ) {
         this.showQueryBuilder = showQueryBuilder;
         this.episodeQueryBuilder = episodeQueryBuilder;
@@ -76,9 +72,7 @@ public class SearchService {
         this.rrfFusion = new RrfFusion(RRF_RANK_CONSTANT);
         this.indexRouter = indexRouter;
         this.queryLogService = queryLogService;
-        this.languageSplitEnabled = languageSplitEnabled;
         this.showsIndex = showsIndex;
-        this.episodesIndex = episodesIndex;
     }
 
     // =====================================================
@@ -181,12 +175,7 @@ public class SearchService {
                 kv("query", request.getQ()), kv("mode", mode),
                 kv("page", request.getPage()), kv("size", request.getSize()));
 
-        // Feature flag: when off, fall back to v1 single-index behaviour
-        if (!languageSplitEnabled) {
-            return searchEpisodesLegacy(request);
-        }
-
-        // Page / size upper-bound validation (lang-split path only)
+        // Page / size upper-bound validation
         if (request.getPage() > 100) {
             throw new InvalidSearchParamException("page must be <= 100");
         }
@@ -255,20 +244,6 @@ public class SearchService {
 
         return new EpisodeSearchResponse(
                 response.status(), response.data(), response.warning(), response.error(), requestId);
-    }
-
-    // =====================================================
-    // Episode Search — v1 legacy path (feature flag off)
-    // =====================================================
-
-    private EpisodeSearchResponse searchEpisodesLegacy(EpisodeSearchRequest request) {
-        var mode = request.getSearchMode();
-        return switch (mode) {
-            case BM25 -> searchEpisodesBm25(request, episodesIndex);
-            case KNN -> searchEpisodesKnn(request, episodesIndex);
-            case HYBRID -> searchEpisodesHybrid(request, episodesIndex);
-            case EXACT -> searchEpisodesExact(request, episodesIndex);
-        };
     }
 
     // =====================================================
