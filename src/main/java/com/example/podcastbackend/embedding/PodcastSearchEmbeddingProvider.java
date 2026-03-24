@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -75,7 +77,7 @@ public class PodcastSearchEmbeddingProvider {
         } catch (EmbeddingUnavailableException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("embedding_provider_failed error={}", e.getMessage());
+            log.warn("embedding_provider_failed", kv("error", e.getMessage()));
             throw new EmbeddingUnavailableException("Failed to call podcast-search /embed: " + e.getMessage(), e);
         }
     }
