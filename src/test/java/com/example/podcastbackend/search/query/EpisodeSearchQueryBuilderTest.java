@@ -17,7 +17,8 @@ class EpisodeSearchQueryBuilderTest {
         queryBuilder = new EpisodeSearchQueryBuilder(
                 "podcast-spec/es/search_episodes_zh_tw/query.template.mustache",
                 "podcast-spec/es/search_episodes_zh_cn/query.template.mustache",
-                "podcast-spec/es/search_episodes_en/query.template.mustache");
+                "podcast-spec/es/search_episodes_en/query.template.mustache",
+                "zh-tw");
     }
 
     // =====================

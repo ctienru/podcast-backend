@@ -17,7 +17,7 @@ public class IndexRouter {
             @Value("${elasticsearch.indices.episodes.zh-tw:episodes-zh-tw}") String zhTwIndex,
             @Value("${elasticsearch.indices.episodes.zh-cn:episodes-zh-cn}") String zhCnIndex,
             @Value("${elasticsearch.indices.episodes.en:episodes-en}") String enIndex,
-            @Value("${search.default-lang:zh-tw}") String defaultLang
+            @Value("${search.default-lang:en}") String defaultLang
     ) {
         this.zhTwIndex = zhTwIndex;
         this.zhCnIndex = zhCnIndex;

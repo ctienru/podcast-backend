@@ -1,5 +1,5 @@
 search:
-  default-lang: ${SEARCH_DEFAULT_LANG:zh-tw}
+  default-lang: ${SEARCH_DEFAULT_LANG:en}
   show:
     template:
       path: podcast-spec/es/search_shows/query.template.mustache
