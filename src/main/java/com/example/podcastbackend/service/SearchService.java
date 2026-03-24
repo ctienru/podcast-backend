@@ -254,7 +254,7 @@ public class SearchService {
                 Instant.now().toString(),
                 request.getQ(),
                 request.getLang(),
-                request.getLang(),
+                indexRouter.resolveLangParam(request.getLang()).getValue(),
                 mode.name().toLowerCase(),
                 targetIndex,
                 isCrossLang,

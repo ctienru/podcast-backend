@@ -168,6 +168,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+        when(indexRouter.resolveLangParam("zh-tw")).thenReturn(LangParam.ZH_TW);
 
         String queryJson = "{\"query\":{\"match\":{}}}";
         when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(queryJson);
@@ -240,6 +241,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.KNN);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+        when(indexRouter.resolveLangParam("zh-tw")).thenReturn(LangParam.ZH_TW);
         when(cachedEmbeddingService.isAvailable()).thenReturn(false);
 
         String bm25Query = "{\"query\":{\"match\":{\"title\":\"podcast\"}}}";
@@ -323,6 +325,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.HYBRID);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+        when(indexRouter.resolveLangParam("zh-tw")).thenReturn(LangParam.ZH_TW);
         when(cachedEmbeddingService.isAvailable()).thenReturn(false);
 
         String bm25Query = "{\"query\":{\"match\":{\"title\":\"podcast\"}}}";
@@ -358,6 +361,7 @@ class SearchServiceTest {
         when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
         when(indexRouter.isCrossIndex("zh-tw")).thenReturn(false);
         when(indexRouter.resolveIndex("zh-tw")).thenReturn("episodes-zh-tw");
+        when(indexRouter.resolveLangParam("zh-tw")).thenReturn(LangParam.ZH_TW);
 
         String queryJson = "{\"query\":{\"match\":{}}}";
         when(episodeQueryBuilder.buildBm25Query(request)).thenReturn(queryJson);
