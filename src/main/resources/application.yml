@@ -11,6 +11,8 @@ search:
 embedding:
   service:
     url: ${EMBEDDING_SERVICE_URL:http://localhost:8081}
+    connect-timeout-ms: ${EMBEDDING_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${EMBEDDING_READ_TIMEOUT_MS:2000}
   cache:
     ttl-minutes: ${EMBEDDING_CACHE_TTL_MINUTES:30}
     max-size: ${EMBEDDING_CACHE_MAX_SIZE:1000}

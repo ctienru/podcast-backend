@@ -25,6 +25,8 @@ class PodcastSearchEmbeddingProviderTest {
         mockServer.start();
         provider = new PodcastSearchEmbeddingProvider(
                 mockServer.url("/").toString().replaceAll("/$", ""),
+                1000,
+                2000,
                 objectMapper
         );
     }

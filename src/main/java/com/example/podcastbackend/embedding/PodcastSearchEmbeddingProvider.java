@@ -22,17 +22,21 @@ public class PodcastSearchEmbeddingProvider {
     private static final Logger log = LoggerFactory.getLogger(PodcastSearchEmbeddingProvider.class);
 
     private final String serviceUrl;
+    private final int readTimeoutMs;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
     public PodcastSearchEmbeddingProvider(
             @Value("${embedding.service.url:http://localhost:8081}") String serviceUrl,
+            @Value("${embedding.service.connect-timeout-ms:1000}") int connectTimeoutMs,
+            @Value("${embedding.service.read-timeout-ms:2000}") int readTimeoutMs,
             ObjectMapper objectMapper
     ) {
         this.serviceUrl = serviceUrl;
+        this.readTimeoutMs = readTimeoutMs;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(1))
+                .connectTimeout(Duration.ofMillis(connectTimeoutMs))
                 .build();
     }
 
@@ -51,7 +55,7 @@ public class PodcastSearchEmbeddingProvider {
                     .uri(URI.create(serviceUrl + "/embed"))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(requestJson))
-                    .timeout(Duration.ofSeconds(2))
+                    .timeout(Duration.ofMillis(readTimeoutMs))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
