@@ -16,13 +16,13 @@ import static org.mockito.Mockito.*;
 
 class CachedEmbeddingServiceTest {
 
-    private PodcastSearchEmbeddingProvider provider;
+    private EmbeddingProvider provider;
     private CachedEmbeddingService service;
     private CircuitBreaker circuitBreaker;
 
     @BeforeEach
     void setUp() {
-        provider = mock(PodcastSearchEmbeddingProvider.class);
+        provider = mock(EmbeddingProvider.class);
         QueryNormalizer normalizer = new QueryNormalizer();
 
         CircuitBreakerConfig config = CircuitBreakerConfig.custom()

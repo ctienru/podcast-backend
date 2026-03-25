@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class CachedEmbeddingService implements EmbeddingService {
 
-    private final PodcastSearchEmbeddingProvider provider;
+    private final EmbeddingProvider provider;
     private final QueryNormalizer normalizer;
     private final Cache<String, float[]> cache;
     private final CircuitBreaker circuitBreaker;
@@ -27,7 +27,7 @@ public class CachedEmbeddingService implements EmbeddingService {
     private final Timer apiLatency;
 
     public CachedEmbeddingService(
-            PodcastSearchEmbeddingProvider provider,
+            EmbeddingProvider provider,
             QueryNormalizer normalizer,
             CircuitBreakerRegistry circuitBreakerRegistry,
             MeterRegistry meterRegistry,

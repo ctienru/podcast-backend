@@ -9,10 +9,15 @@ search:
 
 # Embedding service configuration
 embedding:
+  strategy: ${EMBEDDING_STRATEGY:local}       # local | api
   service:
     url: ${EMBEDDING_SERVICE_URL:http://localhost:8081}
     connect-timeout-ms: ${EMBEDDING_CONNECT_TIMEOUT_MS:1000}
     read-timeout-ms: ${EMBEDDING_READ_TIMEOUT_MS:2000}
+  external:
+    url: ${EMBEDDING_API_URL:}
+    key: ${EMBEDDING_API_KEY:}
+    model: ${EMBEDDING_API_MODEL:}
   cache:
     ttl-minutes: ${EMBEDDING_CACHE_TTL_MINUTES:30}
     max-size: ${EMBEDDING_CACHE_MAX_SIZE:1000}
