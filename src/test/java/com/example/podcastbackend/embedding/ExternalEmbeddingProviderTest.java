@@ -158,4 +158,23 @@ class ExternalEmbeddingProviderTest {
         assertThrows(IllegalArgumentException.class,
                 () -> provider.embed("test", EmbeddingProfile.NONE));
     }
+
+    @Test
+    void isAvailable_withConfiguredUrl_returnsTrue() {
+        assertTrue(provider.isAvailable());
+    }
+
+    @Test
+    void isAvailable_withBlankUrl_returnsFalse() {
+        ExternalEmbeddingProvider disabled = new ExternalEmbeddingProvider(
+                "", "key", MODEL_ZH, MODEL_EN, 2000, objectMapper);
+        assertFalse(disabled.isAvailable());
+    }
+
+    @Test
+    void isAvailable_withNullUrl_returnsFalse() {
+        ExternalEmbeddingProvider disabled = new ExternalEmbeddingProvider(
+                null, "key", MODEL_ZH, MODEL_EN, 2000, objectMapper);
+        assertFalse(disabled.isAvailable());
+    }
 }

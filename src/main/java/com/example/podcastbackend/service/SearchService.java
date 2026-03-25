@@ -118,8 +118,9 @@ public class SearchService {
         }
 
         float[] queryVector;
+        EmbeddingProfile showProfile = resolveShowEmbeddingProfile(request);
         try {
-            queryVector = cachedEmbeddingService.embed(request.getQ(), EmbeddingProfile.ZH);
+            queryVector = cachedEmbeddingService.embed(request.getQ(), showProfile);
         } catch (EmbeddingUnavailableException e) {
             log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "shows"),
                     kv("error", e.getMessage()));
@@ -146,8 +147,9 @@ public class SearchService {
 
         // 2. Execute kNN query
         float[] queryVector;
+        EmbeddingProfile showProfile = resolveShowEmbeddingProfile(request);
         try {
-            queryVector = cachedEmbeddingService.embed(request.getQ(), EmbeddingProfile.ZH);
+            queryVector = cachedEmbeddingService.embed(request.getQ(), showProfile);
         } catch (EmbeddingUnavailableException e) {
             log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "shows"),
                     kv("error", e.getMessage()));
@@ -408,6 +410,15 @@ public class SearchService {
     // =====================================================
     // Embedding profile resolution
     // =====================================================
+
+    private EmbeddingProfile resolveShowEmbeddingProfile(ShowSearchRequest request) {
+        List<String> languages = request.getLanguage();
+        if (languages != null && !languages.isEmpty()
+                && languages.stream().allMatch(l -> "en".equalsIgnoreCase(l))) {
+            return EmbeddingProfile.EN;
+        }
+        return EmbeddingProfile.ZH;
+    }
 
     private EmbeddingProfile resolveEmbeddingProfile(LangParam lang, EpisodeSearchRequest.SearchMode mode) {
         if (mode == EpisodeSearchRequest.SearchMode.BM25 || mode == EpisodeSearchRequest.SearchMode.EXACT) {

@@ -47,6 +47,11 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
     }
 
     @Override
+    public boolean isAvailable() {
+        return apiUrl != null && !apiUrl.isBlank();
+    }
+
+    @Override
     public float[] embed(String text, EmbeddingProfile profile) {
         if (profile == EmbeddingProfile.NONE) {
             throw new IllegalArgumentException("embed() called with NONE profile");

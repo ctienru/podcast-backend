@@ -113,6 +113,105 @@ class SearchServiceTest {
         verify(showMapper).toResponse(mockEsResponse, request);
     }
 
+    @Test
+    @DisplayName("show KNN: uses EN profile when language filter is exclusively English")
+    void searchShows_knn_usesEnProfileForEnglishLanguageFilter() {
+        ShowSearchRequest request = mock(ShowSearchRequest.class);
+        when(request.getQ()).thenReturn("technology");
+        when(request.getPage()).thenReturn(1);
+        when(request.getSize()).thenReturn(10);
+        when(request.getSearchMode()).thenReturn(ShowSearchRequest.SearchMode.KNN);
+        when(request.getLanguage()).thenReturn(List.of("en"));
+        when(cachedEmbeddingService.isAvailable()).thenReturn(true);
+
+        float[] mockVector = new float[384];
+        when(cachedEmbeddingService.embed("technology", EmbeddingProfile.EN)).thenReturn(mockVector);
+
+        String queryJson = "{\"knn\":{}}";
+        when(showQueryBuilder.buildKnnQuery(eq(request), eq(mockVector))).thenReturn(queryJson);
+
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
+        HitsMetadata<JsonNode> mockHits = mock(HitsMetadata.class);
+        TotalHits totalHits = new TotalHits.Builder().value(3).relation(TotalHitsRelation.Eq).build();
+        when(mockHits.total()).thenReturn(totalHits);
+        when(mockEsResponse.hits()).thenReturn(mockHits);
+        when(esClient.search(eq("shows"), eq(queryJson))).thenReturn(mockEsResponse);
+
+        ShowSearchResponseData data = new ShowSearchResponseData(1, 10, 3, List.of());
+        when(showMapper.toResponse(mockEsResponse, request)).thenReturn(ShowSearchResponse.ok(data));
+
+        searchService.searchShows(request);
+
+        verify(cachedEmbeddingService).embed("technology", EmbeddingProfile.EN);
+    }
+
+    @Test
+    @DisplayName("show KNN: uses ZH profile when language filter is null")
+    void searchShows_knn_usesZhProfileWhenLanguageFilterNull() {
+        ShowSearchRequest request = mock(ShowSearchRequest.class);
+        when(request.getQ()).thenReturn("科技");
+        when(request.getPage()).thenReturn(1);
+        when(request.getSize()).thenReturn(10);
+        when(request.getSearchMode()).thenReturn(ShowSearchRequest.SearchMode.KNN);
+        when(request.getLanguage()).thenReturn(null);
+        when(cachedEmbeddingService.isAvailable()).thenReturn(true);
+
+        float[] mockVector = new float[384];
+        when(cachedEmbeddingService.embed("科技", EmbeddingProfile.ZH)).thenReturn(mockVector);
+
+        String queryJson = "{\"knn\":{}}";
+        when(showQueryBuilder.buildKnnQuery(eq(request), eq(mockVector))).thenReturn(queryJson);
+
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
+        HitsMetadata<JsonNode> mockHits = mock(HitsMetadata.class);
+        TotalHits totalHits = new TotalHits.Builder().value(5).relation(TotalHitsRelation.Eq).build();
+        when(mockHits.total()).thenReturn(totalHits);
+        when(mockEsResponse.hits()).thenReturn(mockHits);
+        when(esClient.search(eq("shows"), eq(queryJson))).thenReturn(mockEsResponse);
+
+        ShowSearchResponseData data = new ShowSearchResponseData(1, 10, 5, List.of());
+        when(showMapper.toResponse(mockEsResponse, request)).thenReturn(ShowSearchResponse.ok(data));
+
+        searchService.searchShows(request);
+
+        verify(cachedEmbeddingService).embed("科技", EmbeddingProfile.ZH);
+    }
+
+    @Test
+    @DisplayName("show KNN: uses ZH profile when language filter contains mixed languages")
+    void searchShows_knn_usesZhProfileForMixedLanguageFilter() {
+        ShowSearchRequest request = mock(ShowSearchRequest.class);
+        when(request.getQ()).thenReturn("podcast");
+        when(request.getPage()).thenReturn(1);
+        when(request.getSize()).thenReturn(10);
+        when(request.getSearchMode()).thenReturn(ShowSearchRequest.SearchMode.KNN);
+        when(request.getLanguage()).thenReturn(List.of("en", "zh-tw"));
+        when(cachedEmbeddingService.isAvailable()).thenReturn(true);
+
+        float[] mockVector = new float[384];
+        when(cachedEmbeddingService.embed("podcast", EmbeddingProfile.ZH)).thenReturn(mockVector);
+
+        String queryJson = "{\"knn\":{}}";
+        when(showQueryBuilder.buildKnnQuery(eq(request), eq(mockVector))).thenReturn(queryJson);
+
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> mockEsResponse = mock(SearchResponse.class);
+        HitsMetadata<JsonNode> mockHits = mock(HitsMetadata.class);
+        TotalHits totalHits = new TotalHits.Builder().value(2).relation(TotalHitsRelation.Eq).build();
+        when(mockHits.total()).thenReturn(totalHits);
+        when(mockEsResponse.hits()).thenReturn(mockHits);
+        when(esClient.search(eq("shows"), eq(queryJson))).thenReturn(mockEsResponse);
+
+        ShowSearchResponseData data = new ShowSearchResponseData(1, 10, 2, List.of());
+        when(showMapper.toResponse(mockEsResponse, request)).thenReturn(ShowSearchResponse.ok(data));
+
+        searchService.searchShows(request);
+
+        verify(cachedEmbeddingService).embed("podcast", EmbeddingProfile.ZH);
+    }
+
     // =====================
     // Episode Validation Tests
     // =====================

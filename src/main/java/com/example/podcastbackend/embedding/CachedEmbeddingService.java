@@ -2,7 +2,6 @@ package com.example.podcastbackend.embedding;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.example.podcastbackend.service.EmbeddingService;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -19,7 +18,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import java.util.concurrent.TimeUnit;
 
 @Service
-public class CachedEmbeddingService implements EmbeddingService {
+public class CachedEmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(CachedEmbeddingService.class);
 
@@ -54,6 +53,9 @@ public class CachedEmbeddingService implements EmbeddingService {
     }
 
     public float[] embed(String query, EmbeddingProfile profile) {
+        if (profile == null || profile == EmbeddingProfile.NONE) {
+            throw new IllegalArgumentException("EmbeddingProfile.NONE or null is not valid for embedding");
+        }
         String normalized = normalizer.normalize(query, profile);
         String key = "embedding:" + profile.name().toLowerCase() + ":" + normalized;
 
@@ -80,13 +82,7 @@ public class CachedEmbeddingService implements EmbeddingService {
         }
     }
 
-    @Override
-    public float[] encode(String text) {
-        return embed(text, EmbeddingProfile.ZH);
-    }
-
-    @Override
     public boolean isAvailable() {
-        return circuitBreaker.getState() != CircuitBreaker.State.OPEN;
+        return provider.isAvailable() && circuitBreaker.getState() != CircuitBreaker.State.OPEN;
     }
 }

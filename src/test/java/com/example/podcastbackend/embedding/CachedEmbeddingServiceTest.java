@@ -89,12 +89,34 @@ class CachedEmbeddingServiceTest {
     }
 
     @Test
+    void embed_noneProfile_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.embed("test", EmbeddingProfile.NONE));
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void embed_nullProfile_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.embed("test", null));
+        verifyNoInteractions(provider);
+    }
+
+    @Test
     void isAvailable_closedState_returnsTrue() {
+        when(provider.isAvailable()).thenReturn(true);
         assertTrue(service.isAvailable());
     }
 
     @Test
+    void isAvailable_providerUnavailable_returnsFalse() {
+        when(provider.isAvailable()).thenReturn(false);
+        assertFalse(service.isAvailable());
+    }
+
+    @Test
     void isAvailable_openState_returnsFalse() {
+        when(provider.isAvailable()).thenReturn(true);
         when(provider.embed(any(), any())).thenThrow(new EmbeddingUnavailableException("down"));
         for (int i = 0; i < 4; i++) {
             try { service.embed("q" + i, EmbeddingProfile.ZH); } catch (EmbeddingUnavailableException ignored) {}
