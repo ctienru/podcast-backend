@@ -11,16 +11,14 @@ class EmbeddingConfigurationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void localEmbeddingProvider_returnsPodcastSearchProvider() {
-        EmbeddingProvider provider = config.localEmbeddingProvider(
-                "http://localhost:8081", 1000, 2000, objectMapper);
-        assertInstanceOf(PodcastSearchEmbeddingProvider.class, provider);
-    }
-
-    @Test
-    void externalEmbeddingProvider_returnsExternalProvider() {
-        EmbeddingProvider provider = config.externalEmbeddingProvider(
-                "http://api.example.com", "test-key", "text-embedding-3-small");
+    void embeddingProvider_returnsExternalProvider() {
+        EmbeddingProvider provider = config.embeddingProvider(
+                "http://api.example.com/v1/embeddings",
+                "test-key",
+                "BAAI/bge-base-zh-v1.5",
+                "paraphrase-multilingual-MiniLM-L12-v2",
+                2000,
+                objectMapper);
         assertInstanceOf(ExternalEmbeddingProvider.class, provider);
     }
 }

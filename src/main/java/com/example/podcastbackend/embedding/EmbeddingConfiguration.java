@@ -2,7 +2,6 @@ package com.example.podcastbackend.embedding;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,23 +9,14 @@ import org.springframework.context.annotation.Configuration;
 public class EmbeddingConfiguration {
 
     @Bean
-    @ConditionalOnProperty(name = "embedding.strategy", havingValue = "local", matchIfMissing = true)
-    public EmbeddingProvider localEmbeddingProvider(
-            @Value("${embedding.service.url}") String url,
-            @Value("${embedding.service.connect-timeout-ms}") int connectTimeout,
-            @Value("${embedding.service.read-timeout-ms}") int readTimeout,
-            ObjectMapper objectMapper
-    ) {
-        return new PodcastSearchEmbeddingProvider(url, connectTimeout, readTimeout, objectMapper);
-    }
-
-    @Bean
-    @ConditionalOnProperty(name = "embedding.strategy", havingValue = "api")
-    public EmbeddingProvider externalEmbeddingProvider(
+    public EmbeddingProvider embeddingProvider(
             @Value("${embedding.external.url}") String url,
             @Value("${embedding.external.key}") String key,
-            @Value("${embedding.external.model:}") String model
+            @Value("${embedding.external.model-zh:BAAI/bge-base-zh-v1.5}") String modelZh,
+            @Value("${embedding.external.model-en:paraphrase-multilingual-MiniLM-L12-v2}") String modelEn,
+            @Value("${embedding.external.timeout-ms:2000}") int timeoutMs,
+            ObjectMapper objectMapper
     ) {
-        return new ExternalEmbeddingProvider(url, key, model);
+        return new ExternalEmbeddingProvider(url, key, modelZh, modelEn, timeoutMs, objectMapper);
     }
 }

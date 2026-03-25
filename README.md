@@ -24,7 +24,6 @@ Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providi
 - **Hybrid Search**: BM25 + kNN + RRF (Reciprocal Rank Fusion) for best-of-both-worlds search
 - **Multiple Search Modes**: `bm25`, `knn`, `hybrid`, `exact` (match_phrase)
 - **Time Decay**: Boost recent content with configurable decay parameters
-- **Autocomplete**: Real-time search suggestions for shows and episodes
 - **Multi-Language Support**: Chinese (IK Analyzer) and English with cross-language search
 - **Mustache Query Templates**: Flexible Elasticsearch query generation with templating
 - **Apple Charts Rankings**: Cached podcast rankings by country (Taiwan, US)
@@ -136,7 +135,6 @@ curl -X POST http://localhost:8080/api/search/episodes \
 |--------|----------|-------------|------------|
 | GET | `/api/search/shows` | Search podcasts | 50/sec |
 | GET | `/api/search/episodes` | Search episodes | 50/sec |
-| GET | `/api/search/suggest` | Autocomplete suggestions | 100/sec |
 
 **Episode Search Parameters:**
 
