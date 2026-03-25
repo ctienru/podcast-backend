@@ -2,18 +2,18 @@ package com.example.podcastbackend.request;
 
 public class RankingsRequest {
 
-    private final String country;
+    private final String region;
     private final String type;
     private final int limit;
 
-    public RankingsRequest(String country, String type, int limit) {
-        this.country = country;
+    public RankingsRequest(String region, String type, int limit) {
+        this.region = region;
         this.type = type;
         this.limit = limit;
     }
 
-    public String getCountry() {
-        return country;
+    public String getRegion() {
+        return region;
     }
 
     public String getType() {

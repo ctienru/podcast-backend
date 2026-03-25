@@ -26,7 +26,7 @@ Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providi
 - **Time Decay**: Boost recent content with configurable decay parameters
 - **Multi-Language Support**: Chinese (IK Analyzer) and English with cross-language search
 - **Mustache Query Templates**: Flexible Elasticsearch query generation with templating
-- **Apple Charts Rankings**: Cached podcast rankings by country (Taiwan, US)
+- **Apple Charts Rankings**: Cached podcast rankings by region (Taiwan, US, China)
 - **Rate Limiting**: Configurable request limits per endpoint (Resilience4j)
 - **Circuit Breaker**: Graceful degradation for external API failures
 - **Contract-First Design**: API defined via OpenAPI spec (podcast-spec submodule)
@@ -173,7 +173,7 @@ GET /api/search/episodes?q=machine+learning&mode=exact
 | GET | `/api/rankings` | Apple Charts rankings | 30/sec |
 
 **Query Parameters:**
-- `country`: `tw` or `us` (default: `tw`)
+- `region`: `tw`, `us`, or `cn` (default: `tw`)
 - `type`: `podcast` or `episode` (default: `podcast`)
 - `limit`: 1-100 (default: `20`)
 

@@ -37,23 +37,12 @@ public class RankingsController {
             @ApiResponse(responseCode = "503", description = "Apple Charts service unavailable")
     })
     public RankingsResponse getRankings(
-            @Parameter(description = "Country code", example = "tw")
-            @RequestParam(defaultValue = "tw")
-            @Pattern(regexp = "^(tw|us)$", message = "Country must be 'tw' or 'us'")
-            String country,
+            @Parameter(description = "Region code", example = "tw") @RequestParam(name = "region", defaultValue = "tw") @Pattern(regexp = "^(tw|us|cn)$", message = "Region must be 'tw', 'us', or 'cn'") String region,
 
-            @Parameter(description = "Chart type", example = "podcast")
-            @RequestParam(defaultValue = "podcast")
-            @Pattern(regexp = "^(podcast|episode)$", message = "Type must be 'podcast' or 'episode'")
-            String type,
+            @Parameter(description = "Chart type", example = "podcast") @RequestParam(defaultValue = "podcast") @Pattern(regexp = "^(podcast|episode)$", message = "Type must be 'podcast' or 'episode'") String type,
 
-            @Parameter(description = "Number of results to return", example = "20")
-            @RequestParam(defaultValue = "20")
-            @Min(value = 1, message = "Limit must be at least 1")
-            @Max(value = 100, message = "Limit must not exceed 100")
-            Integer limit
-    ) {
-        RankingsRequest request = new RankingsRequest(country, type, limit);
+            @Parameter(description = "Number of results to return", example = "20") @RequestParam(defaultValue = "20") @Min(value = 1, message = "Limit must be at least 1") @Max(value = 100, message = "Limit must not exceed 100") Integer limit) {
+        RankingsRequest request = new RankingsRequest(region, type, limit);
         return rankingsService.getRankings(request);
     }
 }

@@ -47,7 +47,7 @@ class RequestLoggingFilterTest {
     void doFilterInternal_handlesQueryString() throws Exception {
         when(request.getMethod()).thenReturn("GET");
         when(request.getRequestURI()).thenReturn("/api/rankings");
-        when(request.getQueryString()).thenReturn("country=tw&type=podcast");
+        when(request.getQueryString()).thenReturn("region=tw&type=podcast");
         when(response.getStatus()).thenReturn(200);
 
         filter.doFilterInternal(request, response, filterChain);
@@ -86,8 +86,6 @@ class RequestLoggingFilterTest {
         RuntimeException exception = new RuntimeException("Test exception");
         doThrow(exception).when(filterChain).doFilter(request, response);
 
-        assertThrows(RuntimeException.class, () ->
-            filter.doFilterInternal(request, response, filterChain)
-        );
+        assertThrows(RuntimeException.class, () -> filter.doFilterInternal(request, response, filterChain));
     }
 }
