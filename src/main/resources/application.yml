@@ -39,9 +39,6 @@ elasticsearch:
       zh-cn: ${ELASTICSEARCH_INDEX_EPISODES_ZH_CN:episodes-zh-cn}
       en: ${ELASTICSEARCH_INDEX_EPISODES_EN:episodes-en}
 
-features:
-  language-split: ${ENABLE_LANGUAGE_SPLIT:false}
-
 # Rankings cache configuration
 rankings:
   cache:

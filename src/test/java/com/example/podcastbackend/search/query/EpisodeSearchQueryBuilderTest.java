@@ -56,6 +56,33 @@ class EpisodeSearchQueryBuilderTest {
         assertTrue(query.contains("description^"), "en query should use description field");
     }
 
+    @Test
+    void buildBm25Query_zhBoth_usesChineseFields() {
+        EpisodeSearchRequest request = createRequest("人工智慧", "zh-both");
+
+        String query = queryBuilder.buildBm25Query(request);
+
+        assertTrue(query.contains("title.chinese"), "zh-both query should use Chinese template fields");
+        assertTrue(query.contains("description.chinese"), "zh-both query should use Chinese template fields");
+        assertFalse(query.contains("\"title^"), "zh-both query should not use English template fields");
+    }
+
+    @Test
+    void buildBm25Query_nullLang_withDefaultEn_usesStandardFields() throws Exception {
+        EpisodeSearchQueryBuilder defaultEnBuilder = new EpisodeSearchQueryBuilder(
+                "podcast-spec/es/search_episodes_zh_tw/query.template.mustache",
+                "podcast-spec/es/search_episodes_zh_cn/query.template.mustache",
+                "podcast-spec/es/search_episodes_en/query.template.mustache",
+                "en");
+
+        EpisodeSearchRequest request = createRequest("AI podcast", null);
+
+        String query = defaultEnBuilder.buildBm25Query(request);
+
+        assertFalse(query.contains("title.chinese"), "null lang should follow default-lang=en template");
+        assertTrue(query.contains("\"title^"), "null lang with default en should use English fields");
+    }
+
     // =====================
     // No language filter (v2: routing is index-level)
     // =====================
@@ -111,7 +138,7 @@ class EpisodeSearchQueryBuilderTest {
 
     @Test
     void buildKnnQueryForHybrid_containsKnnSection() {
-        float[] vector = new float[]{0.1f, 0.2f, 0.3f};
+        float[] vector = new float[] { 0.1f, 0.2f, 0.3f };
 
         String query = queryBuilder.buildKnnQueryForHybrid("zh-tw", vector, 100);
 
@@ -121,7 +148,7 @@ class EpisodeSearchQueryBuilderTest {
 
     @Test
     void buildKnnQueryForHybrid_doesNotContainQuerySection() {
-        float[] vector = new float[]{0.1f, 0.2f, 0.3f};
+        float[] vector = new float[] { 0.1f, 0.2f, 0.3f };
 
         String query = queryBuilder.buildKnnQueryForHybrid("zh-tw", vector, 100);
 

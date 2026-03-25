@@ -26,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -38,14 +39,22 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SearchServiceTest {
 
-    @Mock private ShowSearchQueryBuilder showQueryBuilder;
-    @Mock private EpisodeSearchQueryBuilder episodeQueryBuilder;
-    @Mock private ElasticsearchSearchClient esClient;
-    @Mock private ShowSearchMapper showMapper;
-    @Mock private EpisodeSearchMapper episodeMapper;
-    @Mock private CachedEmbeddingService cachedEmbeddingService;
-    @Mock private IndexRouter indexRouter;
-    @Mock private QueryLogService queryLogService;
+    @Mock
+    private ShowSearchQueryBuilder showQueryBuilder;
+    @Mock
+    private EpisodeSearchQueryBuilder episodeQueryBuilder;
+    @Mock
+    private ElasticsearchSearchClient esClient;
+    @Mock
+    private ShowSearchMapper showMapper;
+    @Mock
+    private EpisodeSearchMapper episodeMapper;
+    @Mock
+    private CachedEmbeddingService cachedEmbeddingService;
+    @Mock
+    private IndexRouter indexRouter;
+    @Mock
+    private QueryLogService queryLogService;
 
     private SearchService searchService;
 
@@ -61,8 +70,7 @@ class SearchServiceTest {
                 indexRouter,
                 queryLogService,
                 new SimpleMeterRegistry(),
-                "shows"
-        );
+                "shows");
     }
 
     // =====================
@@ -91,8 +99,7 @@ class SearchServiceTest {
 
         ShowSearchItem item = new ShowSearchItem(
                 "show:apple:123", "Tech Podcast", "A tech podcast", "en",
-                "Publisher", "https://img.url", 100, Map.of(), Map.of(), Map.of()
-        );
+                "Publisher", "https://img.url", 100, Map.of(), Map.of(), Map.of());
         ShowSearchResponseData data = new ShowSearchResponseData(1, 10, 5, List.of(item));
         when(showMapper.toResponse(mockEsResponse, request)).thenReturn(ShowSearchResponse.ok(data));
 
@@ -151,6 +158,23 @@ class SearchServiceTest {
 
         assertThrows(CrossIndexPageLimitException.class,
                 () -> searchService.searchEpisodes(request));
+    }
+
+    @Test
+    @DisplayName("zh-both + non-BM25 mode throws InvalidSearchParamException")
+    void searchEpisodes_zhBothNonBm25_throws() {
+        EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+        when(request.getQ()).thenReturn("podcast");
+        when(request.getPage()).thenReturn(1);
+        when(request.getSize()).thenReturn(10);
+        when(request.getLang()).thenReturn("zh-both");
+        when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.HYBRID);
+        when(indexRouter.isCrossIndex("zh-both")).thenReturn(true);
+
+        InvalidSearchParamException exception = assertThrows(InvalidSearchParamException.class,
+                () -> searchService.searchEpisodes(request));
+
+        assertEquals("zh-both only supports mode=bm25 currently", exception.getMessage());
     }
 
     // =====================
@@ -382,5 +406,48 @@ class SearchServiceTest {
         assertNotNull(response.searchRequestId());
         assertTrue(response.searchRequestId().matches(
                 "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"));
+    }
+
+    @Test
+    @DisplayName("zh-both BM25 logs executed cross-lang mode")
+    void searchEpisodes_zhBothBm25_logsExecutedMode() {
+        EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+        when(request.getQ()).thenReturn("podcast");
+        when(request.getPage()).thenReturn(1);
+        when(request.getSize()).thenReturn(10);
+        when(request.getLang()).thenReturn("zh-both");
+        when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.BM25);
+        when(indexRouter.isCrossIndex("zh-both")).thenReturn(true);
+        when(indexRouter.resolveIndices("zh-both")).thenReturn(List.of("episodes-zh-tw", "episodes-zh-cn"));
+        when(indexRouter.resolveLangParam("zh-both")).thenReturn(LangParam.ZH_BOTH);
+
+        String bm25Query = "{\"query\":{\"match\":{}}}";
+        when(episodeQueryBuilder.buildBm25QueryForHybrid(eq(request), eq(100))).thenReturn(bm25Query);
+
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> zhTwResponse = mock(SearchResponse.class);
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> zhCnResponse = mock(SearchResponse.class);
+        HitsMetadata<JsonNode> zhTwHits = mock(HitsMetadata.class);
+        HitsMetadata<JsonNode> zhCnHits = mock(HitsMetadata.class);
+        TotalHits zhTwTotal = new TotalHits.Builder().value(0).relation(TotalHitsRelation.Eq).build();
+        TotalHits zhCnTotal = new TotalHits.Builder().value(0).relation(TotalHitsRelation.Eq).build();
+        when(zhTwHits.total()).thenReturn(zhTwTotal);
+        when(zhCnHits.total()).thenReturn(zhCnTotal);
+        when(zhTwHits.hits()).thenReturn(List.of());
+        when(zhCnHits.hits()).thenReturn(List.of());
+        when(zhTwResponse.hits()).thenReturn(zhTwHits);
+        when(zhCnResponse.hits()).thenReturn(zhCnHits);
+        when(esClient.search(eq("episodes-zh-tw"), eq(bm25Query))).thenReturn(zhTwResponse);
+        when(esClient.search(eq("episodes-zh-cn"), eq(bm25Query))).thenReturn(zhCnResponse);
+
+        EpisodeSearchResponse response = searchService.searchEpisodes(request);
+
+        assertEquals("ok", response.status());
+
+        ArgumentCaptor<com.example.podcastbackend.log.QueryLogEntry> entryCaptor = ArgumentCaptor
+                .forClass(com.example.podcastbackend.log.QueryLogEntry.class);
+        verify(queryLogService).logQuery(entryCaptor.capture());
+        assertEquals("cross_lang_bm25_rrf", entryCaptor.getValue().mode());
     }
 }

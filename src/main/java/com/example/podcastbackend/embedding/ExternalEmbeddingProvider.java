@@ -34,8 +34,7 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
             String modelZh,
             String modelEn,
             int timeoutMs,
-            ObjectMapper objectMapper
-    ) {
+            ObjectMapper objectMapper) {
         this.apiUrl = apiUrl;
         this.apiKey = apiKey;
         this.modelZh = modelZh;
@@ -92,15 +91,14 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
 
             List<Double> embedding = embedResponse.data.stream()
                     .min(Comparator.comparingInt(d -> d.index))
-                    .orElseThrow(() -> new EmbeddingUnavailableException("No embedding object in response"))
-                    .embedding;
+                    .orElseThrow(() -> new EmbeddingUnavailableException("No embedding object in response")).embedding;
 
             float[] result = new float[embedding.size()];
             for (int i = 0; i < embedding.size(); i++) {
                 result[i] = embedding.get(i).floatValue();
             }
 
-            log.info("embedding_api_ok",
+            log.debug("embedding_api_ok",
                     kv("model", model), kv("profile", profile.name()),
                     kv("latency_ms", System.currentTimeMillis() - start),
                     kv("dimensions", result.length));
@@ -118,7 +116,8 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
         }
     }
 
-    private record EmbedRequest(String model, String input) {}
+    private record EmbedRequest(String model, String input) {
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private static class EmbedResponse {

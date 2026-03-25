@@ -26,8 +26,7 @@ public class EpisodeSearchQueryBuilder {
             @Value("${search.episode.template.zh-tw.path:podcast-spec/es/search_episodes_zh_tw/query.template.mustache}") String zhTwPath,
             @Value("${search.episode.template.zh-cn.path:podcast-spec/es/search_episodes_zh_cn/query.template.mustache}") String zhCnPath,
             @Value("${search.episode.template.en.path:podcast-spec/es/search_episodes_en/query.template.mustache}") String enPath,
-            @Value("${search.default-lang:en}") String defaultLangStr
-    ) throws IOException {
+            @Value("${search.default-lang:en}") String defaultLangStr) throws IOException {
         this.templates = new EnumMap<>(LangParam.class);
         this.templates.put(LangParam.ZH_TW, loadTemplate(zhTwPath, "zh-tw"));
         this.templates.put(LangParam.ZH_CN, loadTemplate(zhCnPath, "zh-cn"));
@@ -47,12 +46,16 @@ public class EpisodeSearchQueryBuilder {
 
     /**
      * Selects the language-specific template.
-     * null and zh-both fall back to defaultLang (from search.default-lang config).
+     * null falls back to defaultLang (from search.default-lang config),
+     * while zh-both maps to a Chinese template.
      */
     private Mustache selectTemplate(String lang) {
         LangParam param = LangParam.fromString(lang);
-        if (param == null || param == LangParam.ZH_BOTH) {
+        if (param == null) {
             return templates.get(defaultLang);
+        }
+        if (param == LangParam.ZH_BOTH) {
+            return templates.get(LangParam.ZH_TW);
         }
         return templates.get(param);
     }

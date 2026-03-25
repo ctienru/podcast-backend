@@ -70,8 +70,7 @@ public class SearchService {
             IndexRouter indexRouter,
             QueryLogService queryLogService,
             MeterRegistry meterRegistry,
-            @Value("${elasticsearch.indices.shows:shows}") String showsIndex
-    ) {
+            @Value("${elasticsearch.indices.shows:shows}") String showsIndex) {
         this.showQueryBuilder = showQueryBuilder;
         this.episodeQueryBuilder = episodeQueryBuilder;
         this.esClient = esClient;
@@ -122,7 +121,8 @@ public class SearchService {
         try {
             queryVector = cachedEmbeddingService.embed(request.getQ(), EmbeddingProfile.ZH);
         } catch (EmbeddingUnavailableException e) {
-            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "shows"), kv("error", e.getMessage()));
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "shows"),
+                    kv("error", e.getMessage()));
             return degradedShowsToBm25(request, e.getMessage());
         }
 
@@ -149,7 +149,8 @@ public class SearchService {
         try {
             queryVector = cachedEmbeddingService.embed(request.getQ(), EmbeddingProfile.ZH);
         } catch (EmbeddingUnavailableException e) {
-            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "shows"), kv("error", e.getMessage()));
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "shows"),
+                    kv("error", e.getMessage()));
             return degradedShowsToBm25(request, e.getMessage());
         }
         String knnQueryJson = showQueryBuilder.buildKnnQueryForHybrid(queryVector, RRF_WINDOW_SIZE);
@@ -159,8 +160,7 @@ public class SearchService {
         List<RrfFusion.FusedResult> fusedResults = rrfFusion.fuse(
                 bm25Result,
                 knnResult,
-                request.getSize()
-        );
+                request.getSize());
 
         // 4. Convert to response
         List<ShowSearchItem> items = fusedResults.stream()
@@ -169,15 +169,13 @@ public class SearchService {
 
         int total = Math.min(
                 (int) bm25Result.hits().total().value() + (int) knnResult.hits().total().value(),
-                RRF_WINDOW_SIZE * 2
-        );
+                RRF_WINDOW_SIZE * 2);
 
         var data = new ShowSearchResponseData(
                 request.getPage(),
                 request.getSize(),
                 total,
-                items
-        );
+                items);
 
         log.info("search_shows_hybrid_completed",
                 kv("bm25_count", bm25Result.hits().hits().size()),
@@ -224,11 +222,16 @@ public class SearchService {
         long startTime = System.currentTimeMillis();
         String targetIndex;
         EpisodeSearchResponse response;
+        String executedMode;
 
         if (isCrossLang) {
+            if (mode != EpisodeSearchRequest.SearchMode.BM25) {
+                throw new InvalidSearchParamException("zh-both only supports mode=bm25 currently");
+            }
             List<String> indices = indexRouter.resolveIndices(request.getLang());
             targetIndex = String.join(",", indices);
             response = searchEpisodesCrossLang(request);
+            executedMode = "cross_lang_bm25_rrf";
         } else {
             targetIndex = indexRouter.resolveIndex(request.getLang());
             response = switch (mode) {
@@ -237,6 +240,7 @@ public class SearchService {
                 case HYBRID -> searchEpisodesHybrid(request, targetIndex);
                 case EXACT -> searchEpisodesExact(request, targetIndex);
             };
+            executedMode = mode.name().toLowerCase();
         }
 
         long latencyMs = System.currentTimeMillis() - startTime;
@@ -255,15 +259,14 @@ public class SearchService {
                 request.getQ(),
                 request.getLang(),
                 indexRouter.resolveLangParam(request.getLang()).getValue(),
-                mode.name().toLowerCase(),
+                executedMode,
                 targetIndex,
                 isCrossLang,
                 items.size(),
                 items.stream().map(EpisodeSearchItem::episodeId).toList(),
                 items.stream().map(e -> e.language() != null ? e.language() : "unknown").toList(),
                 request.getPage(),
-                latencyMs
-        ));
+                latencyMs));
 
         return new EpisodeSearchResponse(
                 response.status(), response.data(), response.warning(), response.error(), requestId);
@@ -288,8 +291,7 @@ public class SearchService {
 
         int total = Math.min(
                 (int) zhTwResult.hits().total().value() + (int) zhCnResult.hits().total().value(),
-                RRF_WINDOW_SIZE * 2
-        );
+                RRF_WINDOW_SIZE * 2);
 
         var data = new EpisodeSearchResponseData(request.getPage(), request.getSize(), total, items);
 
@@ -327,7 +329,8 @@ public class SearchService {
         try {
             queryVector = cachedEmbeddingService.embed(request.getQ(), profile);
         } catch (EmbeddingUnavailableException e) {
-            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "episodes"), kv("error", e.getMessage()));
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "knn"), kv("entity", "episodes"),
+                    kv("error", e.getMessage()));
             return degradedEpisodesToBm25(request, targetIndex, e.getMessage());
         }
         String queryJson = episodeQueryBuilder.buildKnnQuery(request, queryVector);
@@ -356,18 +359,19 @@ public class SearchService {
         try {
             queryVector = cachedEmbeddingService.embed(request.getQ(), profile);
         } catch (EmbeddingUnavailableException e) {
-            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "episodes"), kv("error", e.getMessage()));
+            log.warn("embedding_encode_failed", kv("fallback", "bm25"), kv("mode", "hybrid"), kv("entity", "episodes"),
+                    kv("error", e.getMessage()));
             return degradedEpisodesToBm25(request, targetIndex, e.getMessage());
         }
-        String knnQueryJson = episodeQueryBuilder.buildKnnQueryForHybrid(request.getLang(), queryVector, RRF_WINDOW_SIZE);
+        String knnQueryJson = episodeQueryBuilder.buildKnnQueryForHybrid(request.getLang(), queryVector,
+                RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(targetIndex, knnQueryJson);
 
         // 3. Apply RRF fusion
         List<RrfFusion.FusedResult> fusedResults = rrfFusion.fuse(
                 bm25Result,
                 knnResult,
-                request.getSize()
-        );
+                request.getSize());
 
         // 4. Convert to response
         List<EpisodeSearchItem> items = fusedResults.stream()
@@ -376,15 +380,13 @@ public class SearchService {
 
         int total = Math.min(
                 (int) bm25Result.hits().total().value() + (int) knnResult.hits().total().value(),
-                RRF_WINDOW_SIZE * 2
-        );
+                RRF_WINDOW_SIZE * 2);
 
         var data = new EpisodeSearchResponseData(
                 request.getPage(),
                 request.getSize(),
                 total,
-                items
-        );
+                items);
 
         log.info("search_episodes_hybrid_completed",
                 kv("bm25_count", bm25Result.hits().hits().size()),
@@ -421,15 +423,18 @@ public class SearchService {
     // Degradation helpers
     // =====================================================
 
-    private EpisodeSearchResponse degradedEpisodesToBm25(EpisodeSearchRequest request, String targetIndex, String reason) {
+    private EpisodeSearchResponse degradedEpisodesToBm25(EpisodeSearchRequest request, String targetIndex,
+            String reason) {
         degradedToBm25Counter.increment();
         EpisodeSearchResponse bm25Response = searchEpisodesBm25(request, targetIndex);
-        return EpisodeSearchResponse.partial(bm25Response.data(), "embedding_unavailable: search degraded to bm25 (" + reason + ")");
+        return EpisodeSearchResponse.partial(bm25Response.data(),
+                "embedding_unavailable: search degraded to bm25 (" + reason + ")");
     }
 
     private ShowSearchResponse degradedShowsToBm25(ShowSearchRequest request, String reason) {
         degradedToBm25Counter.increment();
         ShowSearchResponse bm25Response = searchShowsBm25(request);
-        return ShowSearchResponse.partial(bm25Response.data(), "embedding_unavailable: search degraded to bm25 (" + reason + ")");
+        return ShowSearchResponse.partial(bm25Response.data(),
+                "embedding_unavailable: search degraded to bm25 (" + reason + ")");
     }
 }
