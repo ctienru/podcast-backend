@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Null;
 
 import java.util.List;
 
@@ -22,6 +23,7 @@ public class EpisodeSearchRequest {
     private Integer size = 20;
 
     private String sort; // "relevance" | "date"
+    @Null(message = "deprecated: use 'lang' instead of 'language'")
     private List<String> language;
     private String lang; // v2: "zh-tw" | "zh-cn" | "en" | "zh-both"
     private String mode; // "bm25" | "knn" | "hybrid" (default: "bm25")

@@ -153,6 +153,21 @@ class SearchControllerIntegrationTest {
                     .andExpect(jsonPath("$.status").value("ok"));
         }
 
+        @Test
+        @DisplayName("sending deprecated 'language' field should return 400 with deprecation message")
+        void episodeSearch_legacyLanguageField_returns400() throws Exception {
+            mockMvc.perform(post("/api/search/episodes")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"q": "test", "language": ["zh-tw"]}
+                                """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value("error"))
+                    .andExpect(jsonPath("$.error.code").value("INVALID_PARAMETER"))
+                    .andExpect(jsonPath("$.error.message", containsString("language")))
+                    .andExpect(jsonPath("$.error.message", containsString("deprecated")));
+        }
+
         // Show Search Validation
 
         @Test
