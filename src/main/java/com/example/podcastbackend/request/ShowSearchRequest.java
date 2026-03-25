@@ -3,6 +3,7 @@ package com.example.podcastbackend.request;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -11,9 +12,11 @@ public class ShowSearchRequest {
     @NotBlank(message = "Search query cannot be empty")
     private String q;
 
+    @NotNull(message = "Page must not be null")
     @Min(value = 1, message = "Page must be at least 1")
     private Integer page = 1;
 
+    @NotNull(message = "Size must not be null")
     @Min(value = 1, message = "Size must be at least 1")
     @Max(value = 100, message = "Size must not exceed 100")
     private Integer size = 10;

@@ -25,32 +25,31 @@ public class RankingsService {
 
     public RankingsService(
             AppleChartClient appleChartClient,
-            RankingsCache rankingsCache
-    ) {
+            RankingsCache rankingsCache) {
         this.appleChartClient = appleChartClient;
         this.rankingsCache = rankingsCache;
     }
 
     public RankingsResponse getRankings(RankingsRequest request) {
         String type = request.getType();
-        String country = request.getCountry();
+        String region = request.getRegion();
 
         try {
             List<RankingsItem> items;
 
             if ("episode".equals(type)) {
-                items = getEpisodeRankings(country, request.getLimit());
+                items = getEpisodeRankings(region, request.getLimit());
             } else {
-                items = getPodcastRankings(country, request.getLimit());
+                items = getPodcastRankings(region, request.getLimit());
             }
 
             // Get the cached timestamp (will be set after fetching or from existing cache)
-            Instant updatedAt = rankingsCache.getCachedAt(country, type);
+            Instant updatedAt = rankingsCache.getCachedAt(region, type);
             if (updatedAt == null) {
                 updatedAt = Instant.now();
             }
 
-            var data = new RankingsResponseData(country, type, items, updatedAt);
+            var data = new RankingsResponseData(region, type, items, updatedAt);
             return RankingsResponse.ok(data);
 
         } catch (Exception e) {
@@ -157,7 +156,7 @@ public class RankingsService {
                     artworkUrl,
                     null, // language not in chart response
                     null, // episodeCount not applicable
-                    null  // externalUrls
+                    null // externalUrls
             ));
         }
 

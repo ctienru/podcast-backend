@@ -1,39 +1,38 @@
 package com.example.podcastbackend.search.query;
 
 import com.example.podcastbackend.request.EpisodeSearchRequest;
+import com.example.podcastbackend.search.LangParam;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
+import com.github.mustachejava.TemplateFunction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
 @Component
 public class EpisodeSearchQueryBuilder {
 
-    private final Mustache bm25Template;
-    private final Mustache knnTemplate;
-    private final Mustache exactTemplate;
+    private final Map<LangParam, Mustache> templates;
+    private final LangParam defaultLang;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final int KNN_NUM_CANDIDATES = 100;
-
-    // Default time decay parameters (can be overridden via request)
-    private static final String DEFAULT_TIME_DECAY_SCALE = "90d";
-    private static final double DEFAULT_TIME_DECAY_RATE = 0.5;
-
     public EpisodeSearchQueryBuilder(
-            @Value("${search.episode.template.bm25.path:podcast-spec/es/search_episodes/bm25.query.template.mustache}") String bm25Path,
-            @Value("${search.episode.template.knn.path:podcast-spec/es/search_episodes/knn.query.template.mustache}") String knnPath,
-            @Value("${search.episode.template.exact.path:podcast-spec/es/search_episodes/exact.query.template.mustache}") String exactPath)
-            throws Exception {
-        this.bm25Template = loadTemplate(bm25Path, "bm25");
-        this.knnTemplate = loadTemplate(knnPath, "knn");
-        this.exactTemplate = loadTemplate(exactPath, "exact");
+            @Value("${search.episode.template.zh-tw.path:podcast-spec/es/search_episodes_zh_tw/query.template.mustache}") String zhTwPath,
+            @Value("${search.episode.template.zh-cn.path:podcast-spec/es/search_episodes_zh_cn/query.template.mustache}") String zhCnPath,
+            @Value("${search.episode.template.en.path:podcast-spec/es/search_episodes_en/query.template.mustache}") String enPath,
+            @Value("${search.default-lang:en}") String defaultLangStr) throws IOException {
+        this.templates = new EnumMap<>(LangParam.class);
+        this.templates.put(LangParam.ZH_TW, loadTemplate(zhTwPath, "zh-tw"));
+        this.templates.put(LangParam.ZH_CN, loadTemplate(zhCnPath, "zh-cn"));
+        this.templates.put(LangParam.EN, loadTemplate(enPath, "en"));
+        LangParam parsed = LangParam.fromString(defaultLangStr);
+        this.defaultLang = (parsed != null && parsed != LangParam.ZH_BOTH) ? parsed : LangParam.ZH_TW;
     }
 
     private Mustache loadTemplate(String path, String name) throws IOException {
@@ -42,151 +41,89 @@ public class EpisodeSearchQueryBuilder {
         if (inputStream == null) {
             throw new IOException("Template not found in classpath: " + path);
         }
-        var reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-        return mf.compile(reader, name);
+        return mf.compile(new InputStreamReader(inputStream, StandardCharsets.UTF_8), name);
     }
 
     /**
-     * Build BM25 query for text-based search.
+     * Selects the language-specific template.
+     * null falls back to defaultLang (from search.default-lang config),
+     * while zh-both maps to a Chinese template.
      */
+    private Mustache selectTemplate(String lang) {
+        LangParam param = LangParam.fromString(lang);
+        if (param == null) {
+            return templates.get(defaultLang);
+        }
+        if (param == LangParam.ZH_BOTH) {
+            return templates.get(LangParam.ZH_TW);
+        }
+        return templates.get(param);
+    }
+
+    /** BM25 query for standard search. */
     public String buildBm25Query(EpisodeSearchRequest request) {
         Map<String, Object> ctx = new HashMap<>();
-
         ctx.put("query", request.getQ());
         ctx.put("from", request.from());
         ctx.put("size", request.getSize());
-
-        // Time decay parameters (configurable via request)
-        if (request.isTimeDecayEnabled()) {
-            ctx.put("time_decay_enabled", true);
-            ctx.put("time_decay_scale", request.getTimeDecayScale() != null
-                    ? request.getTimeDecayScale()
-                    : DEFAULT_TIME_DECAY_SCALE);
-            ctx.put("time_decay_rate", request.getTimeDecayRate() != null
-                    ? request.getTimeDecayRate()
-                    : DEFAULT_TIME_DECAY_RATE);
+        if (request.sortByDate()) {
+            ctx.put("sort_by_date", true);
         }
-
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
-
-        StringWriter writer = new StringWriter();
-        bm25Template.execute(writer, ctx);
-        return writer.toString();
+        return render(selectTemplate(request.getLang()), ctx);
     }
 
-    /**
-     * Build kNN query for semantic search.
-     *
-     * @param request     The search request
-     * @param queryVector The embedding vector for the query (768 dimensions)
-     */
+    /** KNN-only query for semantic search. */
     public String buildKnnQuery(EpisodeSearchRequest request, float[] queryVector) {
-        Map<String, Object> ctx = new HashMap<>();
-
-        ctx.put("query_vector", queryVector);
-        ctx.put("size", request.getSize());
-        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
-        ctx.put("toJson", new ToJsonLambda(objectMapper));
-
-        StringWriter writer = new StringWriter();
-        knnTemplate.execute(writer, ctx);
-        return writer.toString();
+        Map<String, Object> ctx = buildKnnContext(queryVector, request.getSize());
+        ctx.put("from", request.from());
+        ctx.put("mode_hybrid", true);
+        ctx.put("mode_knn", true);
+        return render(selectTemplate(request.getLang()), ctx);
     }
 
-    /**
-     * Build BM25 query with larger size for RRF fusion.
-     */
+    /** BM25 query with larger window size for RRF fusion. */
     public String buildBm25QueryForHybrid(EpisodeSearchRequest request, int windowSize) {
         Map<String, Object> ctx = new HashMap<>();
-
         ctx.put("query", request.getQ());
         ctx.put("from", 0);
         ctx.put("size", windowSize);
-
-        // Time decay parameters (configurable via request)
-        if (request.isTimeDecayEnabled()) {
-            ctx.put("time_decay_enabled", true);
-            ctx.put("time_decay_scale", request.getTimeDecayScale() != null
-                    ? request.getTimeDecayScale()
-                    : DEFAULT_TIME_DECAY_SCALE);
-            ctx.put("time_decay_rate", request.getTimeDecayRate() != null
-                    ? request.getTimeDecayRate()
-                    : DEFAULT_TIME_DECAY_RATE);
-        }
-
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
-
-        StringWriter writer = new StringWriter();
-        bm25Template.execute(writer, ctx);
-        return writer.toString();
+        return render(selectTemplate(request.getLang()), ctx);
     }
 
-    /**
-     * Build kNN query with larger size for RRF fusion.
-     */
-    public String buildKnnQueryForHybrid(float[] queryVector, int windowSize) {
-        Map<String, Object> ctx = new HashMap<>();
-
-        ctx.put("query_vector", queryVector);
-        ctx.put("size", windowSize);
-        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
-        ctx.put("toJson", new ToJsonLambda(objectMapper));
-
-        StringWriter writer = new StringWriter();
-        knnTemplate.execute(writer, ctx);
-        return writer.toString();
+    /** KNN-only query with larger window size for RRF fusion. */
+    public String buildKnnQueryForHybrid(String lang, float[] queryVector, int windowSize) {
+        Map<String, Object> ctx = buildKnnContext(queryVector, windowSize);
+        ctx.put("from", 0);
+        ctx.put("mode_hybrid", true);
+        ctx.put("mode_knn", true);
+        return render(selectTemplate(lang), ctx);
     }
 
-    /**
-     * Build exact match query using match_phrase for precise phrase matching.
-     * No time decay - users searching for exact phrases typically want specific
-     * content.
-     */
+    /** Exact phrase match query. */
     public String buildExactQuery(EpisodeSearchRequest request) {
         Map<String, Object> ctx = new HashMap<>();
-
         ctx.put("query", request.getQ());
         ctx.put("from", request.from());
         ctx.put("size", request.getSize());
-
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
-
-        StringWriter writer = new StringWriter();
-        exactTemplate.execute(writer, ctx);
-        return writer.toString();
+        ctx.put("mode_exact", true);
+        return render(selectTemplate(request.getLang()), ctx);
     }
 
-    /**
-     * Mustache lambda for JSON serialization.
-     */
-    private record ToJsonLambda(ObjectMapper mapper) implements com.github.mustachejava.TemplateFunction {
-        @Override
-        public String apply(String input) {
-            try {
-                // Input is the variable name, we need to handle this differently
-                // For now, return input as-is since we handle JSON in the template
-                return input;
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize to JSON", e);
-            }
+    private Map<String, Object> buildKnnContext(float[] queryVector, int size) {
+        Map<String, Object> ctx = new HashMap<>();
+        try {
+            ctx.put("queryVector", objectMapper.writeValueAsString(queryVector));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize query vector", e);
         }
+        ctx.put("toJson", (TemplateFunction) input -> input);
+        ctx.put("size", size);
+        return ctx;
+    }
+
+    private String render(Mustache template, Map<String, Object> ctx) {
+        StringWriter writer = new StringWriter();
+        template.execute(writer, ctx);
+        return writer.toString();
     }
 }

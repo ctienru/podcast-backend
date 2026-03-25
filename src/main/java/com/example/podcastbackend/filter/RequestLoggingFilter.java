@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.io.IOException;
 
 @Component
@@ -27,13 +29,14 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
         String fullPath = queryString != null ? uri + "?" + queryString : uri;
 
-        log.info("Request: {} {}", method, fullPath);
+        log.info("http_request_received", kv("method", method), kv("path", fullPath));
 
         try {
             filterChain.doFilter(request, response);
         } finally {
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Response: {} {} - {} ({}ms)", method, uri, response.getStatus(), duration);
+            log.info("http_response_sent", kv("method", method), kv("path", uri),
+                    kv("status", response.getStatus()), kv("latency_ms", duration));
         }
     }
 

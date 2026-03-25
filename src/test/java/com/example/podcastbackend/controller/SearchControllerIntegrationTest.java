@@ -44,7 +44,7 @@ class SearchControllerIntegrationTest {
     class ValidationTests {
 
         @Test
-        @DisplayName("size exceeds limit 100 should return 400 + INVALID_PARAMETER")
+        @DisplayName("size exceeds limit 50 should return 400 + INVALID_PARAMETER")
         void episodeSearch_sizeExceedsLimit_returns400() throws Exception {
             mockMvc.perform(post("/api/search/episodes")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -55,7 +55,7 @@ class SearchControllerIntegrationTest {
                     .andExpect(jsonPath("$.status").value("error"))
                     .andExpect(jsonPath("$.error.code").value("INVALID_PARAMETER"))
                     .andExpect(jsonPath("$.error.message", containsString("size")))
-                    .andExpect(jsonPath("$.error.message", containsString("must not exceed 100")));
+                    .andExpect(jsonPath("$.error.message", containsString("must not exceed 50")));
         }
 
         @Test
@@ -139,18 +139,33 @@ class SearchControllerIntegrationTest {
         }
 
         @Test
-        @DisplayName("size=100 boundary value should pass validation")
+        @DisplayName("size=50 boundary value should pass validation")
         void episodeSearch_sizeAtLimit_passesValidation() throws Exception {
-            var data = new EpisodeSearchResponseData(1, 100, 0, List.of());
+            var data = new EpisodeSearchResponseData(1, 50, 0, List.of());
             when(searchService.searchEpisodes(any())).thenReturn(EpisodeSearchResponse.ok(data));
 
             mockMvc.perform(post("/api/search/episodes")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"q": "test", "size": 100}
+                                {"q": "test", "size": 50}
                                 """))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("ok"));
+        }
+
+        @Test
+        @DisplayName("sending deprecated 'language' field should return 400 with deprecation message")
+        void episodeSearch_legacyLanguageField_returns400() throws Exception {
+            mockMvc.perform(post("/api/search/episodes")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"q": "test", "language": ["zh-tw"]}
+                                """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value("error"))
+                    .andExpect(jsonPath("$.error.code").value("INVALID_PARAMETER"))
+                    .andExpect(jsonPath("$.error.message", containsString("language")))
+                    .andExpect(jsonPath("$.error.message", containsString("deprecated")));
         }
 
         // Show Search Validation

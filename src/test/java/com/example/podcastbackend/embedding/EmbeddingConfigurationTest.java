@@ -1,0 +1,24 @@
+package com.example.podcastbackend.embedding;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+
+class EmbeddingConfigurationTest {
+
+    private final EmbeddingConfiguration config = new EmbeddingConfiguration();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void embeddingProvider_returnsExternalProvider() {
+        EmbeddingProvider provider = config.embeddingProvider(
+                "http://api.example.com/v1/embeddings",
+                "test-key",
+                "BAAI/bge-base-zh-v1.5",
+                "paraphrase-multilingual-MiniLM-L12-v2",
+                2000,
+                objectMapper);
+        assertInstanceOf(ExternalEmbeddingProvider.class, provider);
+    }
+}

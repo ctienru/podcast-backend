@@ -91,6 +91,52 @@ class GlobalExceptionHandlerTest {
         assertEquals("Too many requests. Please try again later.", error.get("message"));
     }
 
+    // --- v2 exceptions ---
+
+    @Test
+    void handleCrossIndexPageLimit_returnsEnvelopeFormat() {
+        CrossIndexPageLimitException exception =
+                new CrossIndexPageLimitException("zh-both search only supports up to 5 pages");
+
+        Map<String, Object> response = handler.handleCrossIndexPageLimit(exception);
+
+        assertEquals("error", response.get("status"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> error = (Map<String, Object>) response.get("error");
+        assertEquals("CROSS_INDEX_PAGE_LIMIT", error.get("code"));
+        assertEquals("zh-both search only supports up to 5 pages", error.get("message"));
+    }
+
+    @Test
+    void handleInvalidLangParam_returnsEnvelopeFormat() {
+        InvalidLangParamException exception =
+                new InvalidLangParamException("Invalid lang parameter: foo. Allowed: zh-tw, zh-cn, en, zh-both");
+
+        Map<String, Object> response = handler.handleInvalidLangParam(exception);
+
+        assertEquals("error", response.get("status"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> error = (Map<String, Object>) response.get("error");
+        assertEquals("INVALID_LANG_PARAM", error.get("code"));
+        assertEquals("Invalid lang parameter: foo. Allowed: zh-tw, zh-cn, en, zh-both", error.get("message"));
+    }
+
+    @Test
+    void handleInvalidSearchParam_returnsEnvelopeFormat() {
+        InvalidSearchParamException exception = new InvalidSearchParamException("page must be <= 100");
+
+        Map<String, Object> response = handler.handleInvalidSearchParam(exception);
+
+        assertEquals("error", response.get("status"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> error = (Map<String, Object>) response.get("error");
+        assertEquals("INVALID_SEARCH_PARAM", error.get("code"));
+        assertEquals("page must be <= 100", error.get("message"));
+    }
+
     @Test
     void handleCircuitBreakerException_returnsCorrectErrorFormat() {
         CircuitBreaker circuitBreaker = CircuitBreaker.ofDefaults("test");

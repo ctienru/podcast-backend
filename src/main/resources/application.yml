@@ -1,4 +1,5 @@
 search:
+  default-lang: ${SEARCH_DEFAULT_LANG:en}
   show:
     template:
       path: podcast-spec/es/search_shows/query.template.mustache
@@ -8,10 +9,15 @@ search:
 
 # Embedding service configuration
 embedding:
-  service:
-    type: ${EMBEDDING_SERVICE_TYPE:remote}  # remote | stub
-    url: ${EMBEDDING_SERVICE_URL:http://localhost:8081}
-    timeout: ${EMBEDDING_SERVICE_TIMEOUT:5000}
+  external:
+    url: ${EMBEDDING_API_URL:}
+    key: ${EMBEDDING_API_KEY:}
+    model-zh: ${EMBEDDING_MODEL_ZH:BAAI/bge-base-zh-v1.5}
+    model-en: ${EMBEDDING_MODEL_EN:paraphrase-multilingual-MiniLM-L12-v2}
+    timeout-ms: ${EMBEDDING_TIMEOUT_MS:2000}
+  cache:
+    ttl-minutes: ${EMBEDDING_CACHE_TTL_MINUTES:30}
+    max-size: ${EMBEDDING_CACHE_MAX_SIZE:1000}
 
 # Elasticsearch configuration
 elasticsearch:
@@ -28,7 +34,10 @@ elasticsearch:
   socket-timeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   indices:
     shows: ${ELASTICSEARCH_INDEX_SHOWS:shows}
-    episodes: ${ELASTICSEARCH_INDEX_EPISODES:episodes}
+    episodes:
+      zh-tw: ${ELASTICSEARCH_INDEX_EPISODES_ZH_TW:episodes-zh-tw}
+      zh-cn: ${ELASTICSEARCH_INDEX_EPISODES_ZH_CN:episodes-zh-cn}
+      en: ${ELASTICSEARCH_INDEX_EPISODES_EN:episodes-en}
 
 # Rankings cache configuration
 rankings:
@@ -63,6 +72,11 @@ resilience4j:
         timeout-duration: 0s
   circuitbreaker:
     instances:
+      embeddingApi:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
       appleApi:
         sliding-window-size: 10
         failure-rate-threshold: 50
