@@ -13,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
@@ -43,6 +44,7 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(timeoutMs))
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
     }
 
@@ -62,7 +64,7 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
         long start = System.currentTimeMillis();
 
         try {
-            String requestJson = objectMapper.writeValueAsString(new EmbedRequest(model, text));
+            String requestJson = objectMapper.writeValueAsString(Map.of("model", model, "input", text));
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiUrl))
@@ -119,9 +121,6 @@ public class ExternalEmbeddingProvider implements EmbeddingProvider {
             log.warn("embedding_provider_failed", kv("error", e.getMessage()));
             throw new EmbeddingUnavailableException("Failed to call embedding API: " + e.getMessage(), e);
         }
-    }
-
-    private record EmbedRequest(String model, String input) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
