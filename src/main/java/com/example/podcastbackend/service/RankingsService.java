@@ -143,20 +143,23 @@ public class RankingsService {
             String artistName = text(entry, "artistName");
             String artworkUrl = text(entry, "artworkUrl100");
 
-            // For episodes, get the collection (podcast) info
             String collectionName = text(entry, "collectionName");
+            String collectionId = text(entry, "collectionId");
 
-            String idPrefix = "podcast".equals(type) ? "show:apple:" : "episode:apple:";
+            boolean isEpisode = "episode".equals(type);
+            String idPrefix = isEpisode ? "episode:apple:" : "show:apple:";
+            String parentShowId = (isEpisode && collectionId != null) ? "show:apple:" + collectionId : null;
 
             items.add(new RankingsItem(
                     rank++,
                     id != null ? idPrefix + id : null,
+                    parentShowId,
                     name,
                     artistName != null ? artistName : collectionName,
                     artworkUrl,
                     null, // language not in chart response
                     null, // episodeCount not applicable
-                    null // externalUrls
+                    null  // externalUrls
             ));
         }
 

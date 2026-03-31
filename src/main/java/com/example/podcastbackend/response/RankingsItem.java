@@ -5,6 +5,7 @@ import java.util.Map;
 public record RankingsItem(
         int rank,
         String showId,
+        String parentShowId,
         String title,
         String publisher,
         String imageUrl,
