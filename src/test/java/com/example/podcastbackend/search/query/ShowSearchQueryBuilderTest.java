@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,10 +26,15 @@ class ShowSearchQueryBuilderTest {
 
     @Test
     void buildKnnQueryForHybrid_serializesQueryVectorAsJsonArray() {
-        String query = queryBuilder.buildKnnQueryForHybrid(new float[] {0.1f, 0.2f, 0.3f}, 100);
+        ShowSearchRequest request = new ShowSearchRequest();
+        setField(request, "language", List.of("en"));
+
+        String query = queryBuilder.buildKnnQueryForHybrid(request, new float[] {0.1f, 0.2f, 0.3f}, 100);
 
         assertTrue(query.contains("\"query_vector\": [0.1,0.2,0.3]"),
                 "query_vector should be rendered as a JSON array");
+        assertTrue(query.contains("\"language\": [\"en\"]"),
+            "kNN hybrid query should include language terms filter when language is provided");
         assertFalse(query.contains("[F@"),
                 "query_vector should not contain the default Java float[] string representation");
     }
@@ -38,11 +44,14 @@ class ShowSearchQueryBuilderTest {
         ShowSearchRequest request = new ShowSearchRequest();
         setField(request, "q", "AI");
         setField(request, "size", 10);
+        setField(request, "language", List.of("en"));
 
         String query = queryBuilder.buildKnnQuery(request, new float[] {1.0f, 2.0f});
 
         assertTrue(query.contains("\"query_vector\": [1.0,2.0]"),
                 "query_vector should be rendered as a JSON array");
+        assertTrue(query.contains("\"language\": [\"en\"]"),
+            "kNN query should include language terms filter when language is provided");
         assertFalse(query.contains("[F@"),
                 "query_vector should not contain the default Java float[] string representation");
     }
