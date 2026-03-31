@@ -84,12 +84,8 @@ public class ShowSearchQueryBuilder {
      * @param queryVector The embedding vector for the query (384 dimensions)
      */
     public String buildKnnQuery(ShowSearchRequest request, float[] queryVector) {
-        Map<String, Object> ctx = new HashMap<>();
-
-        ctx.put("query_vector", queryVector);
+        Map<String, Object> ctx = buildKnnContext(queryVector);
         ctx.put("size", request.getSize() != null ? request.getSize() : 10);
-        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
-        ctx.put("toJson", new ToJsonLambda(objectMapper));
 
         StringWriter writer = new StringWriter();
         knnTemplate.execute(writer, ctx);
@@ -123,16 +119,24 @@ public class ShowSearchQueryBuilder {
      * Build kNN query with larger size for RRF fusion.
      */
     public String buildKnnQueryForHybrid(float[] queryVector, int windowSize) {
-        Map<String, Object> ctx = new HashMap<>();
-
-        ctx.put("query_vector", queryVector);
+        Map<String, Object> ctx = buildKnnContext(queryVector);
         ctx.put("size", windowSize);
-        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
-        ctx.put("toJson", new ToJsonLambda(objectMapper));
 
         StringWriter writer = new StringWriter();
         knnTemplate.execute(writer, ctx);
         return writer.toString();
+    }
+
+    private Map<String, Object> buildKnnContext(float[] queryVector) {
+        Map<String, Object> ctx = new HashMap<>();
+        try {
+            ctx.put("query_vector", objectMapper.writeValueAsString(queryVector));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize query vector", e);
+        }
+        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
+        ctx.put("toJson", new ToJsonLambda(objectMapper));
+        return ctx;
     }
 
     /**
