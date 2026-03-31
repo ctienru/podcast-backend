@@ -46,8 +46,8 @@ class RankingsServiceTest {
         RankingsRequest request = new RankingsRequest("tw", "podcast", 10);
 
         List<RankingsItem> cachedItems = List.of(
-                new RankingsItem(1, "show:apple:123", "Podcast 1", "Artist 1", "https://img.url/1", null, null, null),
-                new RankingsItem(2, "show:apple:456", "Podcast 2", "Artist 2", "https://img.url/2", null, null, null)
+                new RankingsItem(1, "show:apple:123", null, "Podcast 1", "Artist 1", "https://img.url/1", null, null, null),
+                new RankingsItem(2, "show:apple:456", null, "Podcast 2", "Artist 2", "https://img.url/2", null, null, null)
         );
         when(rankingsCache.get("tw", "podcast")).thenReturn(cachedItems);
         when(rankingsCache.getCachedAt("tw", "podcast")).thenReturn(Instant.now());
@@ -100,7 +100,7 @@ class RankingsServiceTest {
         when(appleChartClient.fetchPodcastChart("tw")).thenReturn(null);
 
         List<RankingsItem> staleItems = List.of(
-                new RankingsItem(1, "show:apple:old", "Stale Podcast", "Artist", "https://img.url", null, null, null)
+                new RankingsItem(1, "show:apple:old", null, "Stale Podcast", "Artist", "https://img.url", null, null, null)
         );
         when(rankingsCache.getStale("tw", "podcast")).thenReturn(staleItems);
         when(rankingsCache.getCachedAt("tw", "podcast")).thenReturn(Instant.now().minusSeconds(7200));
@@ -139,8 +139,8 @@ class RankingsServiceTest {
         RankingsRequest request = new RankingsRequest("us", "episode", 5);
 
         List<RankingsItem> cachedItems = List.of(
-                new RankingsItem(1, "episode:apple:ep1", "Episode 1", "Show Name", "https://img.url/1", null, null, null),
-                new RankingsItem(2, "episode:apple:ep2", "Episode 2", "Show Name", "https://img.url/2", null, null, null)
+                new RankingsItem(1, "episode:apple:ep1", null, "Episode 1", "Show Name", "https://img.url/1", null, null, null),
+                new RankingsItem(2, "episode:apple:ep2", null, "Episode 2", "Show Name", "https://img.url/2", null, null, null)
         );
         when(rankingsCache.get("us", "episode")).thenReturn(cachedItems);
         when(rankingsCache.getCachedAt("us", "episode")).thenReturn(Instant.now());
@@ -195,10 +195,10 @@ class RankingsServiceTest {
         RankingsRequest request = new RankingsRequest("tw", "podcast", 2);
 
         List<RankingsItem> cachedItems = List.of(
-                new RankingsItem(1, "show:apple:1", "Podcast 1", "Artist", "url", null, null, null),
-                new RankingsItem(2, "show:apple:2", "Podcast 2", "Artist", "url", null, null, null),
-                new RankingsItem(3, "show:apple:3", "Podcast 3", "Artist", "url", null, null, null),
-                new RankingsItem(4, "show:apple:4", "Podcast 4", "Artist", "url", null, null, null)
+                new RankingsItem(1, "show:apple:1", null, "Podcast 1", "Artist", "url", null, null, null),
+                new RankingsItem(2, "show:apple:2", null, "Podcast 2", "Artist", "url", null, null, null),
+                new RankingsItem(3, "show:apple:3", null, "Podcast 3", "Artist", "url", null, null, null),
+                new RankingsItem(4, "show:apple:4", null, "Podcast 4", "Artist", "url", null, null, null)
         );
         when(rankingsCache.get("tw", "podcast")).thenReturn(cachedItems);
         when(rankingsCache.getCachedAt("tw", "podcast")).thenReturn(Instant.now());
@@ -238,10 +238,10 @@ class RankingsServiceTest {
         RankingsRequest usRequest = new RankingsRequest("us", "podcast", 10);
 
         List<RankingsItem> twItems = List.of(
-                new RankingsItem(1, "show:apple:tw1", "台灣播客", "發行者", "url", null, null, null)
+                new RankingsItem(1, "show:apple:tw1", null, "台灣播客", "發行者", "url", null, null, null)
         );
         List<RankingsItem> usItems = List.of(
-                new RankingsItem(1, "show:apple:us1", "US Podcast", "Publisher", "url", null, null, null)
+                new RankingsItem(1, "show:apple:us1", null, "US Podcast", "Publisher", "url", null, null, null)
         );
 
         when(rankingsCache.get("tw", "podcast")).thenReturn(twItems);

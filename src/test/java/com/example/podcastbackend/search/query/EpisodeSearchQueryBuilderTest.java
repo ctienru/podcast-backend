@@ -143,7 +143,7 @@ class EpisodeSearchQueryBuilderTest {
         String query = queryBuilder.buildKnnQueryForHybrid("zh-tw", vector, 100);
 
         assertTrue(query.contains("\"knn\""), "KNN query should contain knn section");
-        assertTrue(query.contains("title_vector"), "KNN query should reference title_vector field");
+        assertTrue(query.contains("embedding"), "KNN query should reference embedding field");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.example.podcastbackend.service;
 
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import co.elastic.clients.elasticsearch.core.search.TotalHitsRelation;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -29,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -435,6 +437,76 @@ class SearchServiceTest {
         verify(esClient).search("episodes-zh-tw", bm25Query);
         verify(esClient).search("episodes-zh-tw", knnQuery);
         verify(cachedEmbeddingService).embed("AI podcast", EmbeddingProfile.ZH);
+    }
+
+    @Test
+    @DisplayName("HYBRID page>1: items are offset correctly and do not repeat page 1 results")
+    void searchEpisodes_hybrid_page2_returnsCorrectOffset() {
+        EpisodeSearchRequest request = mock(EpisodeSearchRequest.class);
+        when(request.getQ()).thenReturn("AI podcast");
+        when(request.getPage()).thenReturn(2);
+        when(request.getSize()).thenReturn(5);
+        when(request.from()).thenReturn(5); // (2-1)*5 = 5
+        when(request.getLang()).thenReturn("en");
+        when(request.getSearchMode()).thenReturn(EpisodeSearchRequest.SearchMode.HYBRID);
+        when(indexRouter.isCrossIndex("en")).thenReturn(false);
+        when(indexRouter.resolveIndex("en")).thenReturn("episodes-en");
+        when(indexRouter.resolveLangParam("en")).thenReturn(LangParam.EN);
+        when(cachedEmbeddingService.isAvailable()).thenReturn(true);
+
+        float[] mockVector = new float[384];
+        when(cachedEmbeddingService.embed("AI podcast", EmbeddingProfile.EN)).thenReturn(mockVector);
+
+        String bm25Query = "{\"query\":{\"match\":{}},\"size\":100}";
+        String knnQuery = "{\"knn\":{},\"size\":100}";
+        when(episodeQueryBuilder.buildBm25QueryForHybrid(eq(request), eq(100))).thenReturn(bm25Query);
+        when(episodeQueryBuilder.buildKnnQueryForHybrid(any(), eq(mockVector), eq(100))).thenReturn(knnQuery);
+
+        // Create 10 ordered hits for BM25: e1 (rank 1) through e10 (rank 10)
+        List<Hit<JsonNode>> bm25HitsList = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            @SuppressWarnings("unchecked")
+            Hit<JsonNode> hit = mock(Hit.class);
+            when(hit.id()).thenReturn("e" + i);
+            bm25HitsList.add(hit);
+        }
+
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> bm25Response = mock(SearchResponse.class);
+        @SuppressWarnings("unchecked")
+        SearchResponse<JsonNode> knnResponse = mock(SearchResponse.class);
+        HitsMetadata<JsonNode> bm25Hits = mock(HitsMetadata.class);
+        HitsMetadata<JsonNode> knnHits = mock(HitsMetadata.class);
+        TotalHits bm25Total = new TotalHits.Builder().value(10).relation(TotalHitsRelation.Eq).build();
+        TotalHits knnTotal = new TotalHits.Builder().value(0).relation(TotalHitsRelation.Eq).build();
+        when(bm25Hits.total()).thenReturn(bm25Total);
+        when(knnHits.total()).thenReturn(knnTotal);
+        when(bm25Hits.hits()).thenReturn(bm25HitsList);
+        when(knnHits.hits()).thenReturn(List.of());
+        when(bm25Response.hits()).thenReturn(bm25Hits);
+        when(knnResponse.hits()).thenReturn(knnHits);
+        when(esClient.search(eq("episodes-en"), eq(bm25Query))).thenReturn(bm25Response);
+        when(esClient.search(eq("episodes-en"), eq(knnQuery))).thenReturn(knnResponse);
+
+        // Mock mapper to return identifiable items for hits e6-e10 (page 2)
+        for (int i = 6; i <= 10; i++) {
+            Hit<JsonNode> hit = bm25HitsList.get(i - 1);
+            EpisodeSearchItem item = new EpisodeSearchItem(
+                    "e" + i, "Episode " + i, null, Map.of(), null, null, null, null, null, null);
+            when(episodeMapper.hitToItem(hit)).thenReturn(item);
+        }
+
+        EpisodeSearchResponse response = searchService.searchEpisodes(request);
+
+        assertEquals("ok", response.status());
+        assertNotNull(response.data());
+        assertEquals(5, response.data().items().size());
+
+        // Page 2 must return items e6-e10, not e1-e5
+        List<String> returnedIds = response.data().items().stream()
+                .map(EpisodeSearchItem::episodeId)
+                .toList();
+        assertEquals(List.of("e6", "e7", "e8", "e9", "e10"), returnedIds);
     }
 
     @Test

@@ -29,6 +29,8 @@ Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providi
 - **Apple Charts Rankings**: Cached podcast rankings by region (Taiwan, US, China)
 - **Rate Limiting**: Configurable request limits per endpoint (Resilience4j)
 - **Circuit Breaker**: Graceful degradation for external API failures
+- **EmbeddingProvider**: Strategy-based routing with BM25 fallback when embedding service is unavailable
+- **Partial Success**: Returns `partial_success` status with degraded warning when embedding call fails (BM25-only results)
 - **Contract-First Design**: API defined via OpenAPI spec (podcast-spec submodule)
 
 ## Tech Stack
@@ -36,7 +38,7 @@ Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providi
 | Category | Technology |
 |----------|------------|
 | Framework | Spring Boot 4.0.1 |
-| Language | Java 17 |
+| Language | Java 21 LTS |
 | Search Engine | Elasticsearch 8.11.1 |
 | Resilience | Resilience4j 2.2.0 |
 | API Docs | SpringDoc OpenAPI 2.8.4 |
@@ -72,7 +74,7 @@ podcast-backend/
 
 ### 1. Prerequisites
 
-- Java 17+
+- Java 21+
 - Elasticsearch 8.11+ running on `localhost:9200`
 
 ### 2. Clone and Build
@@ -101,7 +103,36 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 The API will be available at http://localhost:8080
 
-### 5. Verify Setup
+### 5. Populate Elasticsearch
+
+The backend requires podcast data indexed into Elasticsearch. Use **podcast-search** to ingest:
+
+```bash
+cd ../podcast-search
+
+# Step 1: generate embeddings (local machine)
+python -m src.pipelines.embed_episodes --batch-size 256
+
+# Step 2: ingest into ES
+# Local ES (default chunk size 500 is fine):
+ES_ENV=local ES_HOST=http://localhost:9200 \
+  python -m src.pipelines.embed_and_ingest --from-cache
+
+# Remote / production ES (reduce chunk size to avoid request timeouts):
+ES_ENV=prod ES_HOST=https://your-es-host \
+  ES_API_KEY_ID=... ES_API_KEY_SECRET=... \
+  python -m src.pipelines.embed_and_ingest \
+  --from-cache --batch-size 64 --es-chunk-size 100 \
+  --show-ids <show_id_1> <show_id_2> ...
+```
+
+Key parameters:
+- `--batch-size`: embedding model batch size (memory usage); unrelated to ES
+- `--es-chunk-size`: documents per ES bulk HTTP request (default 500; use 100–200 for remote)
+
+For segmented remote ingestion, run the above command multiple times with different `--show-ids` subsets (for example, by show or by date range) to keep each run small and resumable.
+
+### 6. Verify Setup
 
 ```bash
 # Health check
@@ -112,8 +143,6 @@ curl -X POST http://localhost:8080/api/search/episodes \
   -H "Content-Type: application/json" \
   -d '{"q": "technology", "page": 1, "size": 10}'
 ```
-
-> **Note**: Requires Elasticsearch with indexed podcast data.
 
 ## Environment Variables
 
@@ -126,6 +155,14 @@ curl -X POST http://localhost:8080/api/search/episodes \
 | `ELASTICSEARCH_INDEX_EPISODES` | Episodes index name | `episodes` |
 | `CORS_ALLOWED_ORIGINS` | Allowed CORS origins | `http://localhost:3000` |
 | `RANKINGS_CACHE_TTL` | Rankings cache TTL (seconds) | `3600` |
+| `EPISODES_ALIAS_ZH_TW` | ES alias for Traditional Chinese episodes | `episodes-zh-tw` |
+| `EPISODES_ALIAS_ZH_CN` | ES alias for Simplified Chinese episodes | `episodes-zh-cn` |
+| `EPISODES_ALIAS_EN` | ES alias for English episodes | `episodes-en` |
+| `EMBEDDING_API_URL` | External embedding API URL (OpenAI-compatible) | — |
+| `EMBEDDING_API_KEY` | External embedding API key | — |
+| `EMBEDDING_MODEL_ZH` | Chinese embedding model | `BAAI/bge-base-zh-v1.5` |
+| `EMBEDDING_MODEL_EN` | English embedding model | `paraphrase-multilingual-MiniLM-L12-v2` |
+| `EMBEDDING_TIMEOUT_MS` | Embedding HTTP timeout (ms) | `2000` |
 
 ## API Endpoints
 
@@ -141,12 +178,11 @@ curl -X POST http://localhost:8080/api/search/episodes \
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `q` | string | required | Search query |
-| `page` | int | 1 | Page number |
-| `size` | int | 10 | Results per page |
+| `page` | int | `1` | Page number |
+| `size` | int | `20` | Results per page (max 50) |
+| `lang` | string | — | Language routing: `zh-tw`, `zh-cn`, `en`, `zh-both` |
 | `mode` | string | `bm25` | Search mode: `bm25`, `knn`, `hybrid`, `exact` |
-| `timeDecay` | boolean | true | Enable time decay for recent content |
-| `timeDecayScale` | string | `90d` | Decay scale (e.g., `30d`, `60d`) |
-| `timeDecayRate` | double | 0.5 | Decay rate (0-1) |
+| `sort` | string | — | Sort order: `relevance` (default) or `date` |
 
 **Search Modes:**
 
@@ -159,10 +195,10 @@ curl -X POST http://localhost:8080/api/search/episodes \
 
 **Example:**
 ```bash
-# Hybrid search with time decay
-GET /api/search/episodes?q=AI&mode=hybrid&timeDecay=true
+# Hybrid search, Traditional Chinese only
+GET /api/search/episodes?q=AI&mode=hybrid&lang=zh-tw
 
-# Exact phrase match
+# Exact phrase match, any language
 GET /api/search/episodes?q=machine+learning&mode=exact
 ```
 
