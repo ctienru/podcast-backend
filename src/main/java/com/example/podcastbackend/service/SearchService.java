@@ -165,9 +165,10 @@ public class SearchService {
                 knnResult,
                 showOffset + request.getSize());
 
-        // 4. Convert to response (apply page offset)
+        // 4. Convert to response (apply page offset and page size)
         List<ShowSearchItem> items = allFusedShows.stream()
                 .skip(showOffset)
+                .limit(request.getSize())
                 .map(r -> showMapper.hitToItem(r.hit()))
                 .toList();
 
