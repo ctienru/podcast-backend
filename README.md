@@ -130,7 +130,7 @@ Key parameters:
 - `--batch-size`: embedding model batch size (memory usage); unrelated to ES
 - `--es-chunk-size`: documents per ES bulk HTTP request (default 500; use 100–200 for remote)
 
-For segmented remote ingestion, see `podcast-doc/v2/2026-03-31-remote-es-ingest-runbook.md`.
+For segmented remote ingestion, run the above command multiple times with different `--show-ids` subsets (for example, by show or by date range) to keep each run small and resumable.
 
 ### 6. Verify Setup
 
