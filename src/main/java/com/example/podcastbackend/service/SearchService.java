@@ -158,14 +158,16 @@ public class SearchService {
         String knnQueryJson = showQueryBuilder.buildKnnQueryForHybrid(queryVector, RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(showsIndex, knnQueryJson);
 
-        // 3. Apply RRF fusion
-        List<RrfFusion.FusedResult> fusedResults = rrfFusion.fuse(
+        // 3. Apply RRF fusion (fetch enough to cover the requested page)
+        int showOffset = request.from();
+        List<RrfFusion.FusedResult> allFusedShows = rrfFusion.fuse(
                 bm25Result,
                 knnResult,
-                request.getSize());
+                showOffset + request.getSize());
 
-        // 4. Convert to response
-        List<ShowSearchItem> items = fusedResults.stream()
+        // 4. Convert to response (apply page offset)
+        List<ShowSearchItem> items = allFusedShows.stream()
+                .skip(showOffset)
                 .map(r -> showMapper.hitToItem(r.hit()))
                 .toList();
 
@@ -182,7 +184,7 @@ public class SearchService {
         log.info("search_shows_hybrid_completed",
                 kv("bm25_count", bm25Result.hits().hits().size()),
                 kv("knn_count", knnResult.hits().hits().size()),
-                kv("fused_count", fusedResults.size()));
+                kv("fused_count", items.size()));
 
         return ShowSearchResponse.ok(data);
     }
@@ -369,14 +371,16 @@ public class SearchService {
                 RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(targetIndex, knnQueryJson);
 
-        // 3. Apply RRF fusion
-        List<RrfFusion.FusedResult> fusedResults = rrfFusion.fuse(
+        // 3. Apply RRF fusion (fetch enough to cover the requested page)
+        int offset = request.from();
+        List<RrfFusion.FusedResult> allFused = rrfFusion.fuse(
                 bm25Result,
                 knnResult,
-                request.getSize());
+                offset + request.getSize());
 
-        // 4. Convert to response
-        List<EpisodeSearchItem> items = fusedResults.stream()
+        // 4. Convert to response (apply page offset)
+        List<EpisodeSearchItem> items = allFused.stream()
+                .skip(offset)
                 .map(r -> episodeMapper.hitToItem(r.hit()))
                 .toList();
 
@@ -393,7 +397,7 @@ public class SearchService {
         log.info("search_episodes_hybrid_completed",
                 kv("bm25_count", bm25Result.hits().hits().size()),
                 kv("knn_count", knnResult.hits().hits().size()),
-                kv("fused_count", fusedResults.size()));
+                kv("fused_count", items.size()));
 
         return EpisodeSearchResponse.ok(data);
     }
