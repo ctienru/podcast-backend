@@ -1,6 +1,7 @@
 package com.example.podcastbackend.search.query;
 
 import com.example.podcastbackend.request.ShowSearchRequest;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,22 +26,24 @@ class ShowSearchQueryBuilderTest {
     }
 
     @Test
-    void buildKnnQueryForHybrid_serializesQueryVectorAsJsonArray() {
+    void buildKnnQueryForHybrid_serializesQueryVectorAsJsonArray() throws Exception {
         ShowSearchRequest request = new ShowSearchRequest();
         setField(request, "language", List.of("en"));
 
         String query = queryBuilder.buildKnnQueryForHybrid(request, new float[] {0.1f, 0.2f, 0.3f}, 100);
 
-        assertTrue(query.contains("\"query_vector\": [0.1,0.2,0.3]"),
-                "query_vector should be rendered as a JSON array");
-        assertTrue(query.contains("\"language\": [\"en\"]"),
+        JsonNode root = new ObjectMapper().readTree(query);
+        JsonNode queryVector = root.path("knn").path("query_vector");
+        assertTrue(queryVector.isArray(), "query_vector should be rendered as a JSON array");
+        assertFalse(query.contains("[F@"), "query_vector should not contain the default Java float[] string representation");
+
+        JsonNode language = root.path("knn").path("filter").path("terms").path("language");
+        assertTrue(language.isArray() && "en".equals(language.get(0).asText()),
             "kNN hybrid query should include language terms filter when language is provided");
-        assertFalse(query.contains("[F@"),
-                "query_vector should not contain the default Java float[] string representation");
     }
 
     @Test
-    void buildKnnQuery_serializesQueryVectorAsJsonArray() {
+    void buildKnnQuery_serializesQueryVectorAsJsonArray() throws Exception {
         ShowSearchRequest request = new ShowSearchRequest();
         setField(request, "q", "AI");
         setField(request, "size", 10);
@@ -48,12 +51,14 @@ class ShowSearchQueryBuilderTest {
 
         String query = queryBuilder.buildKnnQuery(request, new float[] {1.0f, 2.0f});
 
-        assertTrue(query.contains("\"query_vector\": [1.0,2.0]"),
-                "query_vector should be rendered as a JSON array");
-        assertTrue(query.contains("\"language\": [\"en\"]"),
+        JsonNode root = new ObjectMapper().readTree(query);
+        JsonNode queryVector = root.path("knn").path("query_vector");
+        assertTrue(queryVector.isArray(), "query_vector should be rendered as a JSON array");
+        assertFalse(query.contains("[F@"), "query_vector should not contain the default Java float[] string representation");
+
+        JsonNode language = root.path("knn").path("filter").path("terms").path("language");
+        assertTrue(language.isArray() && "en".equals(language.get(0).asText()),
             "kNN query should include language terms filter when language is provided");
-        assertFalse(query.contains("[F@"),
-                "query_vector should not contain the default Java float[] string representation");
     }
 
     private void setField(Object obj, String fieldName, Object value) {

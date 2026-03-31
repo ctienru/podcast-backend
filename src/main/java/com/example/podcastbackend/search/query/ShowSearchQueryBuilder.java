@@ -65,13 +65,7 @@ public class ShowSearchQueryBuilder {
         ctx.put("from", from);
         ctx.put("size", size);
 
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
+        addLanguagesFilter(ctx, request.getLanguage());
 
         StringWriter writer = new StringWriter();
         bm25Template.execute(writer, ctx);
@@ -103,13 +97,7 @@ public class ShowSearchQueryBuilder {
         ctx.put("from", 0);
         ctx.put("size", windowSize);
 
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
+        addLanguagesFilter(ctx, request.getLanguage());
 
         StringWriter writer = new StringWriter();
         bm25Template.execute(writer, ctx);
@@ -136,6 +124,14 @@ public class ShowSearchQueryBuilder {
             throw new RuntimeException("Failed to serialize query vector", e);
         }
 
+        addLanguagesFilter(ctx, languages);
+
+        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
+        ctx.put("toJson", new ToJsonLambda(objectMapper));
+        return ctx;
+    }
+
+    private void addLanguagesFilter(Map<String, Object> ctx, List<String> languages) {
         if (languages != null && !languages.isEmpty()) {
             try {
                 ctx.put("languagesJson", objectMapper.writeValueAsString(languages));
@@ -143,10 +139,6 @@ public class ShowSearchQueryBuilder {
                 throw new RuntimeException("Failed to serialize languages", e);
             }
         }
-
-        ctx.put("num_candidates", KNN_NUM_CANDIDATES);
-        ctx.put("toJson", new ToJsonLambda(objectMapper));
-        return ctx;
     }
 
     /**
