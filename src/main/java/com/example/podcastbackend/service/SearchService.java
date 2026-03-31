@@ -155,7 +155,7 @@ public class SearchService {
                     kv("error", e.getMessage()));
             return degradedShowsToBm25(request, e.getMessage());
         }
-        String knnQueryJson = showQueryBuilder.buildKnnQueryForHybrid(queryVector, RRF_WINDOW_SIZE);
+        String knnQueryJson = showQueryBuilder.buildKnnQueryForHybrid(request, queryVector, RRF_WINDOW_SIZE);
         SearchResponse<JsonNode> knnResult = esClient.search(showsIndex, knnQueryJson);
 
         // 3. Apply RRF fusion (fetch enough to cover the requested page)

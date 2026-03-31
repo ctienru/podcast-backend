@@ -11,6 +11,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 @Component
 public class ShowSearchQueryBuilder {
@@ -64,13 +65,7 @@ public class ShowSearchQueryBuilder {
         ctx.put("from", from);
         ctx.put("size", size);
 
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
+        addLanguagesFilter(ctx, request.getLanguage());
 
         StringWriter writer = new StringWriter();
         bm25Template.execute(writer, ctx);
@@ -84,7 +79,7 @@ public class ShowSearchQueryBuilder {
      * @param queryVector The embedding vector for the query (384 dimensions)
      */
     public String buildKnnQuery(ShowSearchRequest request, float[] queryVector) {
-        Map<String, Object> ctx = buildKnnContext(queryVector);
+        Map<String, Object> ctx = buildKnnContext(queryVector, request.getLanguage());
         ctx.put("size", request.getSize() != null ? request.getSize() : 10);
 
         StringWriter writer = new StringWriter();
@@ -102,13 +97,7 @@ public class ShowSearchQueryBuilder {
         ctx.put("from", 0);
         ctx.put("size", windowSize);
 
-        if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
-            try {
-                ctx.put("languagesJson", objectMapper.writeValueAsString(request.getLanguage()));
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize languages", e);
-            }
-        }
+        addLanguagesFilter(ctx, request.getLanguage());
 
         StringWriter writer = new StringWriter();
         bm25Template.execute(writer, ctx);
@@ -118,8 +107,8 @@ public class ShowSearchQueryBuilder {
     /**
      * Build kNN query with larger size for RRF fusion.
      */
-    public String buildKnnQueryForHybrid(float[] queryVector, int windowSize) {
-        Map<String, Object> ctx = buildKnnContext(queryVector);
+    public String buildKnnQueryForHybrid(ShowSearchRequest request, float[] queryVector, int windowSize) {
+        Map<String, Object> ctx = buildKnnContext(queryVector, request.getLanguage());
         ctx.put("size", windowSize);
 
         StringWriter writer = new StringWriter();
@@ -127,16 +116,29 @@ public class ShowSearchQueryBuilder {
         return writer.toString();
     }
 
-    private Map<String, Object> buildKnnContext(float[] queryVector) {
+    private Map<String, Object> buildKnnContext(float[] queryVector, List<String> languages) {
         Map<String, Object> ctx = new HashMap<>();
         try {
             ctx.put("query_vector", objectMapper.writeValueAsString(queryVector));
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize query vector", e);
         }
+
+        addLanguagesFilter(ctx, languages);
+
         ctx.put("num_candidates", KNN_NUM_CANDIDATES);
         ctx.put("toJson", new ToJsonLambda(objectMapper));
         return ctx;
+    }
+
+    private void addLanguagesFilter(Map<String, Object> ctx, List<String> languages) {
+        if (languages != null && !languages.isEmpty()) {
+            try {
+                ctx.put("languagesJson", objectMapper.writeValueAsString(languages));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize languages", e);
+            }
+        }
     }
 
     /**
