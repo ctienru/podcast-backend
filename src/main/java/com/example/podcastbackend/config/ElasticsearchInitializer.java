@@ -38,7 +38,9 @@ public class ElasticsearchInitializer {
                   "result_ids":       { "type": "keyword" },
                   "result_languages": { "type": "keyword" },
                   "page":             { "type": "integer" },
-                  "latency_ms":       { "type": "integer" }
+                  "latency_ms":       { "type": "integer" },
+                  "was_degraded":     { "type": "boolean" },
+                  "degradation_reason": { "type": "keyword" }
                 }
               }
             }
