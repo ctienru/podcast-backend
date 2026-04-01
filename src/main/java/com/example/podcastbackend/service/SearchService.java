@@ -48,6 +48,8 @@ public class SearchService {
     private static final int RRF_WINDOW_SIZE = 100;
     private static final int RRF_RANK_CONSTANT = 60;
 
+    private static final String EMBEDDING_UNAVAILABLE_PREFIX = "embedding_unavailable:";
+
     private final ShowSearchQueryBuilder showQueryBuilder;
     private final EpisodeSearchQueryBuilder episodeQueryBuilder;
     private final ElasticsearchSearchClient esClient;
@@ -258,20 +260,24 @@ public class SearchService {
         } else {
             items = List.of();
         }
+        boolean wasDegraded = response.warning() != null
+                && response.warning().startsWith(EMBEDDING_UNAVAILABLE_PREFIX);
         queryLogService.logQuery(new QueryLogEntry(
                 requestId,
                 Instant.now().toString(),
                 request.getQ(),
                 request.getLang(),
                 indexRouter.resolveLangParam(request.getLang()).getValue(),
-                executedMode,
+                wasDegraded ? "bm25" : executedMode,
                 targetIndex,
                 isCrossLang,
                 items.size(),
                 items.stream().map(EpisodeSearchItem::episodeId).toList(),
                 items.stream().map(e -> e.language() != null ? e.language() : "unknown").toList(),
                 request.getPage(),
-                latencyMs));
+                latencyMs,
+                wasDegraded,
+                wasDegraded ? "embedding_unavailable" : null));
 
         return new EpisodeSearchResponse(
                 response.status(), response.data(), response.warning(), response.error(), requestId);
@@ -444,13 +450,13 @@ public class SearchService {
         degradedToBm25Counter.increment();
         EpisodeSearchResponse bm25Response = searchEpisodesBm25(request, targetIndex);
         return EpisodeSearchResponse.partial(bm25Response.data(),
-                "embedding_unavailable: search degraded to bm25 (" + reason + ")");
+                EMBEDDING_UNAVAILABLE_PREFIX + " search degraded to bm25 (" + reason + ")");
     }
 
     private ShowSearchResponse degradedShowsToBm25(ShowSearchRequest request, String reason) {
         degradedToBm25Counter.increment();
         ShowSearchResponse bm25Response = searchShowsBm25(request);
         return ShowSearchResponse.partial(bm25Response.data(),
-                "embedding_unavailable: search degraded to bm25 (" + reason + ")");
+                EMBEDDING_UNAVAILABLE_PREFIX + " search degraded to bm25 (" + reason + ")");
     }
 }

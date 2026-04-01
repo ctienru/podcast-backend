@@ -314,6 +314,12 @@ class SearchServiceTest {
         assertEquals("ok", response.status());
         verify(indexRouter).resolveIndex("zh-tw");
         verify(esClient).search("episodes-zh-tw", queryJson);
+
+        ArgumentCaptor<com.example.podcastbackend.log.QueryLogEntry> entryCaptor = ArgumentCaptor
+                .forClass(com.example.podcastbackend.log.QueryLogEntry.class);
+        verify(queryLogService).logQuery(entryCaptor.capture());
+        assertFalse(entryCaptor.getValue().wasDegraded());
+        assertNull(entryCaptor.getValue().degradationReason());
     }
 
     @Test
@@ -390,6 +396,13 @@ class SearchServiceTest {
         verify(cachedEmbeddingService, never()).embed(any(), any());
         verify(episodeQueryBuilder, never()).buildKnnQuery(any(), any());
         verify(esClient).search("episodes-zh-tw", bm25Query);
+
+        ArgumentCaptor<com.example.podcastbackend.log.QueryLogEntry> entryCaptor = ArgumentCaptor
+                .forClass(com.example.podcastbackend.log.QueryLogEntry.class);
+        verify(queryLogService).logQuery(entryCaptor.capture());
+        assertTrue(entryCaptor.getValue().wasDegraded());
+        assertEquals("embedding_unavailable", entryCaptor.getValue().degradationReason());
+        assertEquals("bm25", entryCaptor.getValue().mode());
     }
 
     @Test
@@ -543,6 +556,13 @@ class SearchServiceTest {
         assertNotNull(response.warning());
         verify(cachedEmbeddingService, never()).embed(any(), any());
         verify(esClient).search("episodes-zh-tw", bm25Query);
+
+        ArgumentCaptor<com.example.podcastbackend.log.QueryLogEntry> entryCaptor = ArgumentCaptor
+                .forClass(com.example.podcastbackend.log.QueryLogEntry.class);
+        verify(queryLogService).logQuery(entryCaptor.capture());
+        assertTrue(entryCaptor.getValue().wasDegraded());
+        assertEquals("embedding_unavailable", entryCaptor.getValue().degradationReason());
+        assertEquals("bm25", entryCaptor.getValue().mode());
     }
 
     @Test

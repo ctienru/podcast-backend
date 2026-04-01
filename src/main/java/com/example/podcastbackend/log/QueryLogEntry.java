@@ -24,7 +24,9 @@ public record QueryLogEntry(
         List<String> resultIds,
         List<String> resultLanguages,
         int page,
-        long latencyMs
+        long latencyMs,
+        boolean wasDegraded,
+        String degradationReason
 ) {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -44,6 +46,10 @@ public record QueryLogEntry(
         doc.put("result_languages", resultLanguages);
         doc.put("page", page);
         doc.put("latency_ms", latencyMs);
+        doc.put("was_degraded", wasDegraded);
+        if (degradationReason != null) {
+            doc.put("degradation_reason", degradationReason);
+        }
         try {
             return MAPPER.writeValueAsString(doc);
         } catch (JsonProcessingException e) {
