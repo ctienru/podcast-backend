@@ -258,6 +258,8 @@ public class SearchService {
         } else {
             items = List.of();
         }
+        boolean wasDegraded = response.warning() != null
+                && response.warning().startsWith("embedding_unavailable:");
         queryLogService.logQuery(new QueryLogEntry(
                 requestId,
                 Instant.now().toString(),
@@ -271,7 +273,9 @@ public class SearchService {
                 items.stream().map(EpisodeSearchItem::episodeId).toList(),
                 items.stream().map(e -> e.language() != null ? e.language() : "unknown").toList(),
                 request.getPage(),
-                latencyMs));
+                latencyMs,
+                wasDegraded,
+                wasDegraded ? "embedding_unavailable" : null));
 
         return new EpisodeSearchResponse(
                 response.status(), response.data(), response.warning(), response.error(), requestId);
