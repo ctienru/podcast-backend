@@ -20,7 +20,7 @@ class ExternalEmbeddingProviderTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String MODEL_ZH = "paraphrase-multilingual-MiniLM-L12-v2";
-    private static final String MODEL_EN = "paraphrase-multilingual-MiniLM-L12-v2";
+    private static final String MODEL_EN = "paraphrase-multilingual-MiniLM-L12-v2-en";
 
     @BeforeEach
     void setUp() throws IOException {
