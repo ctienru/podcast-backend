@@ -12,7 +12,7 @@ embedding:
   external:
     url: ${EMBEDDING_API_URL:}
     key: ${EMBEDDING_API_KEY:}
-    model-zh: ${EMBEDDING_MODEL_ZH:BAAI/bge-base-zh-v1.5}
+    model-zh: ${EMBEDDING_MODEL_ZH:paraphrase-multilingual-MiniLM-L12-v2}
     model-en: ${EMBEDDING_MODEL_EN:paraphrase-multilingual-MiniLM-L12-v2}
     timeout-ms: ${EMBEDDING_TIMEOUT_MS:2000}
   cache:
