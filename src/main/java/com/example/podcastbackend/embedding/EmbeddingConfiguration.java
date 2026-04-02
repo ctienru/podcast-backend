@@ -12,7 +12,7 @@ public class EmbeddingConfiguration {
     public EmbeddingProvider embeddingProvider(
             @Value("${embedding.external.url}") String url,
             @Value("${embedding.external.key}") String key,
-            @Value("${embedding.external.model-zh:BAAI/bge-base-zh-v1.5}") String modelZh,
+            @Value("${embedding.external.model-zh:paraphrase-multilingual-MiniLM-L12-v2}") String modelZh,
             @Value("${embedding.external.model-en:paraphrase-multilingual-MiniLM-L12-v2}") String modelEn,
             @Value("${embedding.external.timeout-ms:2000}") int timeoutMs,
             ObjectMapper objectMapper

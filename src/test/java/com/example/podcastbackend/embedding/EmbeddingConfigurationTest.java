@@ -15,7 +15,7 @@ class EmbeddingConfigurationTest {
         EmbeddingProvider provider = config.embeddingProvider(
                 "http://api.example.com/v1/embeddings",
                 "test-key",
-                "BAAI/bge-base-zh-v1.5",
+                "paraphrase-multilingual-MiniLM-L12-v2",
                 "paraphrase-multilingual-MiniLM-L12-v2",
                 2000,
                 objectMapper);

@@ -19,7 +19,7 @@ class ExternalEmbeddingProviderTest {
     private ExternalEmbeddingProvider provider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final String MODEL_ZH = "BAAI/bge-base-zh-v1.5";
+    private static final String MODEL_ZH = "paraphrase-multilingual-MiniLM-L12-v2";
     private static final String MODEL_EN = "paraphrase-multilingual-MiniLM-L12-v2";
 
     @BeforeEach

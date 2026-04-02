@@ -160,7 +160,7 @@ curl -X POST http://localhost:8080/api/search/episodes \
 | `EPISODES_ALIAS_EN` | ES alias for English episodes | `episodes-en` |
 | `EMBEDDING_API_URL` | External embedding API URL (OpenAI-compatible) | — |
 | `EMBEDDING_API_KEY` | External embedding API key | — |
-| `EMBEDDING_MODEL_ZH` | Chinese embedding model | `BAAI/bge-base-zh-v1.5` |
+| `EMBEDDING_MODEL_ZH` | Chinese embedding model | `paraphrase-multilingual-MiniLM-L12-v2` |
 | `EMBEDDING_MODEL_EN` | English embedding model | `paraphrase-multilingual-MiniLM-L12-v2` |
 | `EMBEDDING_TIMEOUT_MS` | Embedding HTTP timeout (ms) | `2000` |
 
