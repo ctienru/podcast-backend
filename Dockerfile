@@ -1,5 +1,5 @@
-# Multi-stage build - Build with Maven
-FROM maven:3.9-eclipse-temurin-17 AS builder
+# Multi-stage build - Build with Maven (Java 21)
+FROM maven:3.9-eclipse-temurin-21 AS builder
 
 WORKDIR /app
 
@@ -11,8 +11,8 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Runtime stage - Use lightweight JRE
-FROM eclipse-temurin:17-jre
+# Runtime stage - Use lightweight JRE (Java 21)
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
