@@ -10,7 +10,6 @@ public record EpisodeSearchItem(
         Map<String, List<String>> highlights,
         String publishedAt,
         Integer durationSec,
-        String imageUrl,
         String language,
         Audio audio,
         ShowInfo podcast

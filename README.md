@@ -29,7 +29,7 @@ Podcast search API service built with Spring Boot 4 and Elasticsearch 8, providi
 - **Apple Charts Rankings**: Cached podcast rankings by region (Taiwan, US, China)
 - **Rate Limiting**: Configurable request limits per endpoint (Resilience4j)
 - **Circuit Breaker**: Graceful degradation for external API failures
-- **EmbeddingProvider**: Strategy-based routing with BM25 fallback when embedding service is unavailable
+- **EmbeddingProvider**: Strategy-based routing (`openai` or `runpod`) with BM25 fallback when embedding service is unavailable
 - **Partial Success**: Returns `partial_success` status with degraded warning when embedding call fails (BM25-only results)
 - **Contract-First Design**: API defined via OpenAPI spec (podcast-spec submodule)
 
@@ -160,6 +160,7 @@ curl -X POST http://localhost:8080/api/search/episodes \
 | `EPISODES_ALIAS_EN` | ES alias for English episodes | `episodes-en` |
 | `EMBEDDING_API_URL` | External embedding API URL (OpenAI-compatible) | — |
 | `EMBEDDING_API_KEY` | External embedding API key | — |
+| `EMBEDDING_PROVIDER_TYPE` | Embedding backend: `openai` (local dev, OpenAI-compatible) or `runpod` (production, RunPod serverless) | `openai` |
 | `EMBEDDING_MODEL_ZH` | Chinese embedding model | `paraphrase-multilingual-MiniLM-L12-v2` |
 | `EMBEDDING_MODEL_EN` | English embedding model | `paraphrase-multilingual-MiniLM-L12-v2` |
 | `EMBEDDING_TIMEOUT_MS` | Embedding HTTP timeout (ms) | `2000` |
@@ -170,10 +171,19 @@ curl -X POST http://localhost:8080/api/search/episodes \
 
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
-| GET | `/api/search/shows` | Search podcasts | 50/sec |
-| GET | `/api/search/episodes` | Search episodes | 50/sec |
+| POST | `/api/search/shows` | Search podcasts | 50/sec |
+| POST | `/api/search/episodes` | Search episodes | 50/sec |
 
-**Episode Search Parameters:**
+**Show Search Parameters (request body):**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | required | Search keyword |
+| `page` | int | `1` | Page number (only page 1 is currently supported) |
+| `size` | int | `10` | Results per page (max 100) |
+| `language` | string[] | — | Language filter (e.g. `["en", "zh-TW"]`) |
+
+**Episode Search Parameters (request body):**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -196,10 +206,14 @@ curl -X POST http://localhost:8080/api/search/episodes \
 **Example:**
 ```bash
 # Hybrid search, Traditional Chinese only
-GET /api/search/episodes?q=AI&mode=hybrid&lang=zh-tw
+curl -X POST http://localhost:8080/api/search/episodes \
+  -H "Content-Type: application/json" \
+  -d '{"q": "AI", "mode": "hybrid", "lang": "zh-tw"}'
 
 # Exact phrase match, any language
-GET /api/search/episodes?q=machine+learning&mode=exact
+curl -X POST http://localhost:8080/api/search/episodes \
+  -H "Content-Type: application/json" \
+  -d '{"q": "machine learning", "mode": "exact"}'
 ```
 
 ### Rankings

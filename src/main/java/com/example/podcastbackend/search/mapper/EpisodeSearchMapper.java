@@ -108,7 +108,6 @@ public class EpisodeSearchMapper {
                 highlights,
                 text(src, "published_at"),
                 intValue(src, "duration_sec"),
-                text(src, "image_url"),
                 text(src, "language"),
                 audioInfo(src),
                 podcastInfo(src)

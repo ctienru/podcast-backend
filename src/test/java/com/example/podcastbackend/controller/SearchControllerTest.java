@@ -101,7 +101,6 @@ class SearchControllerTest {
                 Map.of(),
                 "2024-01-01T00:00:00Z",
                 3600,
-                null,
                 "en",
                 null,
                 showInfo

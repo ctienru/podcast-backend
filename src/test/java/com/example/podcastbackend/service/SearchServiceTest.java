@@ -505,7 +505,7 @@ class SearchServiceTest {
         for (int i = 6; i <= 10; i++) {
             Hit<JsonNode> hit = bm25HitsList.get(i - 1);
             EpisodeSearchItem item = new EpisodeSearchItem(
-                    "e" + i, "Episode " + i, null, Map.of(), null, null, null, null, null, null);
+                    "e" + i, "Episode " + i, null, Map.of(), null, null, null, null, null);
             when(episodeMapper.hitToItem(hit)).thenReturn(item);
         }
 
