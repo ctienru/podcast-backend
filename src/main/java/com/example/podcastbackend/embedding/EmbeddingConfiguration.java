@@ -15,8 +15,12 @@ public class EmbeddingConfiguration {
             @Value("${embedding.external.model-zh:paraphrase-multilingual-MiniLM-L12-v2}") String modelZh,
             @Value("${embedding.external.model-en:paraphrase-multilingual-MiniLM-L12-v2}") String modelEn,
             @Value("${embedding.external.timeout-ms:2000}") int timeoutMs,
+            @Value("${embedding.external.provider-type:openai}") String providerType,
             ObjectMapper objectMapper
     ) {
+        if ("runpod".equalsIgnoreCase(providerType.trim())) {
+            return new RunPodEmbeddingProvider(url, key, modelZh, modelEn, timeoutMs, objectMapper);
+        }
         return new ExternalEmbeddingProvider(url, key, modelZh, modelEn, timeoutMs, objectMapper);
     }
 }
