@@ -1,9 +1,11 @@
 package com.example.podcastbackend.embedding;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,11 +64,11 @@ class RunPodEmbeddingProviderTest {
 
         RecordedRequest req = mockServer.takeRequest(1, TimeUnit.SECONDS);
         assertNotNull(req);
-        String body = req.getBody().readUtf8();
+        JsonNode root = objectMapper.readTree(req.getBody().readUtf8());
         // RunPod format: outer "input" envelope wrapping model+input
-        assertTrue(body.startsWith("{\"input\":"), "Request must be wrapped in {\"input\": ...}");
-        assertTrue(body.contains("\"" + MODEL_ZH + "\""), "Model name must be inside the input envelope");
-        assertTrue(body.contains("人工智慧"), "Text must be inside the input envelope");
+        assertNotNull(root.get("input"), "Request must be wrapped in {\"input\": ...}");
+        assertEquals(MODEL_ZH, root.get("input").get("model").asText(), "Model name must be inside the input envelope");
+        assertEquals("人工智慧", root.get("input").get("input").asText(), "Text must be inside the input envelope");
     }
 
     @Test
@@ -161,6 +163,28 @@ class RunPodEmbeddingProviderTest {
     void embed_noneProfile_throwsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class,
                 () -> provider.embed("test", EmbeddingProfile.NONE));
+    }
+
+    @Test
+    void embed_serverUnavailable_throwsEmbeddingUnavailableException() throws IOException {
+        mockServer.shutdown();
+
+        assertThrows(EmbeddingUnavailableException.class,
+                () -> provider.embed("test", EmbeddingProfile.ZH));
+    }
+
+    @Test
+    void embed_timeout_throwsEmbeddingUnavailableException() {
+        // NO_RESPONSE: server accepts connection but never sends any bytes,
+        // guaranteeing HttpTimeoutException regardless of local network speed
+        mockServer.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+
+        RunPodEmbeddingProvider shortTimeoutProvider = new RunPodEmbeddingProvider(
+                mockServer.url("/v2/model/run").toString(),
+                "test-api-key", MODEL_ZH, MODEL_EN, 50, objectMapper);
+
+        assertThrows(EmbeddingUnavailableException.class,
+                () -> shortTimeoutProvider.embed("test", EmbeddingProfile.ZH));
     }
 
     @Test

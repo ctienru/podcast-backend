@@ -106,6 +106,10 @@ public class RunPodEmbeddingProvider implements EmbeddingProvider {
                     .orElseThrow(() -> new EmbeddingUnavailableException("No embedding object in RunPod response"))
                     .embedding;
 
+            if (embedding == null || embedding.isEmpty()) {
+                throw new EmbeddingUnavailableException("Null or empty embedding vector in RunPod response");
+            }
+
             float[] result = new float[embedding.size()];
             for (int i = 0; i < embedding.size(); i++) {
                 result[i] = embedding.get(i).floatValue();

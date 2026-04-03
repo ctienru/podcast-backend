@@ -18,7 +18,7 @@ public class EmbeddingConfiguration {
             @Value("${embedding.external.provider-type:openai}") String providerType,
             ObjectMapper objectMapper
     ) {
-        if ("runpod".equals(providerType)) {
+        if ("runpod".equalsIgnoreCase(providerType.trim())) {
             return new RunPodEmbeddingProvider(url, key, modelZh, modelEn, timeoutMs, objectMapper);
         }
         return new ExternalEmbeddingProvider(url, key, modelZh, modelEn, timeoutMs, objectMapper);
